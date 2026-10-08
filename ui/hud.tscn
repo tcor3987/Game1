@@ -1,8 +1,6 @@
-[gd_scene load_steps=3 format=3 uid="uid://c7lm2d3mnk1gu"]
+[gd_scene load_steps=2 format=3 uid="uid://c7lm2d3mnk1gu"]
 
 [ext_resource type="Script" path="res://ui/hud.gd" id="1_hud"]
-
-[sub_resource type="ButtonGroup" id="ButtonGroup_tabs"]
 
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource("1_hud")
@@ -15,6 +13,26 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 color = Color(0.05, 0.04, 0.08, 1)
+
+[node name="MapHost" type="Control" parent="."]
+unique_name_in_owner = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 64.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
+[node name="PopupHost" type="Control" parent="."]
+unique_name_in_owner = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 64.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 
 [node name="TopBar" type="ColorRect" parent="."]
 anchors_preset = 10
@@ -45,18 +63,7 @@ custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 size_flags_horizontal = 3
 toggle_mode = true
-button_pressed = true
-button_group = SubResource("ButtonGroup_tabs")
 text = "Overview"
-
-[node name="MapButton" type="Button" parent="TopBar/Margin/Buttons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 40)
-layout_mode = 2
-size_flags_horizontal = 3
-toggle_mode = true
-button_group = SubResource("ButtonGroup_tabs")
-text = "Map"
 
 [node name="HangarButton" type="Button" parent="TopBar/Margin/Buttons"]
 unique_name_in_owner = true
@@ -64,7 +71,6 @@ custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 size_flags_horizontal = 3
 toggle_mode = true
-button_group = SubResource("ButtonGroup_tabs")
 text = "Hangar"
 
 [node name="CompartmentsButton" type="Button" parent="TopBar/Margin/Buttons"]
@@ -73,7 +79,6 @@ custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 size_flags_horizontal = 3
 toggle_mode = true
-button_group = SubResource("ButtonGroup_tabs")
 text = "Compartments"
 
 [node name="MissionsButton" type="Button" parent="TopBar/Margin/Buttons"]
@@ -82,18 +87,7 @@ custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 size_flags_horizontal = 3
 toggle_mode = true
-button_group = SubResource("ButtonGroup_tabs")
 text = "Missions"
-
-[node name="ViewHost" type="Control" parent="."]
-unique_name_in_owner = true
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_top = 64.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 0
 
 [node name="Hint" type="Label" parent="."]
 anchors_preset = 2
@@ -110,7 +104,6 @@ theme_override_font_sizes/font_size = 16
 text = "Esc saves and returns to menu"
 
 [connection signal="toggled" from="TopBar/Margin/Buttons/OverviewButton" to="." method="_on_overview_toggled"]
-[connection signal="toggled" from="TopBar/Margin/Buttons/MapButton" to="." method="_on_map_toggled"]
 [connection signal="toggled" from="TopBar/Margin/Buttons/HangarButton" to="." method="_on_hangar_toggled"]
 [connection signal="toggled" from="TopBar/Margin/Buttons/CompartmentsButton" to="." method="_on_compartments_toggled"]
 [connection signal="toggled" from="TopBar/Margin/Buttons/MissionsButton" to="." method="_on_missions_toggled"]

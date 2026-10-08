@@ -61,6 +61,11 @@ func issue_move(world_position: Vector2) -> void:
 	_target = world_position
 
 
+func issue_stop() -> void:
+	_target = null
+	velocity = Vector2.ZERO
+
+
 func set_selected(value: bool) -> void:
 	if is_selected == value:
 		_update_selection_visual()

@@ -466,7 +466,7 @@ func describe_compartment(compartment_id: String) -> String:
 		lines.append("Ore in hold: %d · Resources: %d" % [int(ore), int(resources)])
 	if function_id == "crew_quarters":
 		lines.append("Meal demand relief: %.0f%% while crewed" % (float(def.get("meal_relief", 0.0)) * 100.0 * float(crewed)))
-		lines.append("Crew roster: %d (grow it by rescuing survivors on jump missions)" % CrewData.total_crew)
+		lines.append("Crew roster: %d (grow it by boarding derelicts on jump missions)" % CrewData.total_crew)
 	if function_id == "jump_drive":
 		var charge_secs := get_jump_charge_seconds()
 		if crewed <= 0:

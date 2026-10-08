@@ -54,7 +54,10 @@ func get_craft_pilots() -> int:
 
 
 func get_unassigned() -> int:
-	return maxi(total_crew - get_assigned_total() - craft_pilots, 0)
+	return maxi(
+		total_crew - get_assigned_total() - craft_pilots - FleetData.get_hangar_crew_total(),
+		0
+	)
 
 
 func has_free_pilot() -> bool:
@@ -70,9 +73,21 @@ func assign_pilot() -> bool:
 
 
 func release_pilot() -> void:
-	if craft_pilots <= 0:
+	release_pilots(1)
+
+
+func release_pilots(count: int) -> void:
+	if count <= 0:
 		return
-	craft_pilots -= 1
+	craft_pilots = maxi(craft_pilots - count, 0)
+	_changed()
+
+
+## Hangar crew already reserved; move that reservation onto deployed pilots.
+func convert_hangar_crew_to_pilots(count: int) -> void:
+	if count <= 0:
+		return
+	craft_pilots += count
 	_changed()
 
 
@@ -91,8 +106,11 @@ func sync_pilots_to_deployed(deployed_count: int) -> void:
 	if craft_pilots == next:
 		return
 	craft_pilots = next
-	## Keep pilots from exceeding available bodies after compartment assignments.
-	var max_pilots := maxi(total_crew - get_assigned_total(), 0)
+	## Keep pilots from exceeding available bodies after compartment + hangar crew.
+	var max_pilots := maxi(
+		total_crew - get_assigned_total() - FleetData.get_hangar_crew_total(),
+		0
+	)
 	if craft_pilots > max_pilots:
 		craft_pilots = max_pilots
 	_changed()

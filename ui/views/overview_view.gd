@@ -53,7 +53,16 @@ func _refresh() -> void:
 	var feed_line := "Mess: needs crew"
 	if ShipData.get_feed_rate() > 0.0:
 		feed_line = "Mess: feeding" if ShipData.is_crew_fed() else "Mess: out of meals"
-	var survivors_here := MissionData.count_survivors_on_mission(MissionData.current_mission_id)
+	var mid := MissionData.current_mission_id
+	var known := MissionData.count_known_survivors_on_mission(mid)
+	var unexplored := MissionData.count_unexplored_derelicts(mid)
+	var survivor_line := "Survivors: none confirmed"
+	if unexplored > 0 and known <= 0:
+		survivor_line = "Survivors: unknown (%d wrecks unexplored)" % unexplored
+	elif unexplored > 0:
+		survivor_line = "Survivors: %d known · %d wrecks unexplored" % [known, unexplored]
+	elif known > 0:
+		survivor_line = "Survivors confirmed: %d (board with Shuttle)" % known
 	_crew_label.text = "\n".join([
 		"Crew & life support",
 		"%d available · %d assigned · %d total" % [
@@ -63,7 +72,7 @@ func _refresh() -> void:
 		],
 		"Produce %d · Meals %d" % [int(ShipData.get_produce()), int(ShipData.get_meals())],
 		feed_line,
-		"Survivors left in sector: %d (Hangar → launch Rescue → Map)" % survivors_here,
+		"%s — Hangar → Shuttle → Map" % survivor_line,
 		_jump_drive_line(),
 	])
 	_fleet_label.text = "\n".join([
@@ -71,7 +80,7 @@ func _refresh() -> void:
 		"Interceptors stored: %d" % FleetData.get_stored("interceptor"),
 		"Bombers stored: %d" % FleetData.get_stored("bomber"),
 		"Miners stored: %d" % FleetData.get_stored("miner"),
-		"Rescue craft stored: %d" % FleetData.get_stored("rescue"),
+		"Shuttles stored: %d" % FleetData.get_stored("shuttle"),
 		"Deployed: %d · Pilots: %d · Free crew: %d" % [
 			FleetData.deployed_bodies,
 			CrewData.get_craft_pilots(),

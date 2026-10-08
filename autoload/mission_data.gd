@@ -14,7 +14,7 @@ const MISSION_TYPES := {
 	},
 	"sos": {
 		"label": "SOS Signal",
-		"summary": "Distress calls and derelicts with survivors to rescue.",
+		"summary": "Distress calls. Board derelicts to learn what is aboard.",
 	},
 	"combat": {
 		"label": "Combat Contract",
@@ -37,8 +37,8 @@ const MISSION_DEFS := {
 	"haven": {
 		"name": "Haven Anchorage",
 		"type": "home",
-		"summary": "Peaceful home sector. Mine the local asteroid, salvage the anchorage wreck, and outfit the carrier.",
-		"objective": "Rest, refine, and prepare for the next contract.",
+		"summary": "Peaceful home sector. Mine the asteroid, board the anchorage wreck (contents unknown), and outfit the carrier.",
+		"objective": "Rest, refine, board the wreck with a shuttle, and prepare for the next contract.",
 		"spawn": Vector2(700, 420),
 		"safe_zone": true,
 		"safe_zone_name": "Haven Anchorage",
@@ -51,6 +51,7 @@ const MISSION_DEFS := {
 				"id": "haven_wreck",
 				"pos": Vector2(880, 300),
 				"survivors": 2,
+				"threats": 0,
 				"scrap": 20.0,
 				"craft_type": "freighter",
 			},
@@ -59,8 +60,8 @@ const MISSION_DEFS := {
 	"scrap_drift": {
 		"name": "Scrap Drift",
 		"type": "sos",
-		"summary": "A junk field of dead hulls. Survivors are still aboard — jump in and pull them out.",
-		"objective": "Rescue survivors from derelicts. Salvage scrap with miners.",
+		"summary": "A junk field of dead hulls. Boarding teams must explore each wreck — contents unknown.",
+		"objective": "Send shuttles to explore derelicts, clear threats, recover any survivors.",
 		"spawn": Vector2(640, 720),
 		"safe_zone": true,
 		"safe_zone_name": "Scrap Drift",
@@ -68,15 +69,15 @@ const MISSION_DEFS := {
 		"safe_zone_radius": 520.0,
 		"asteroid": false,
 		"derelicts": [
-			{"id": "scrap_a", "pos": Vector2(980, 560), "survivors": 3, "scrap": 15.0, "craft_type": "freighter"},
-			{"id": "scrap_b", "pos": Vector2(1480, 980), "survivors": 2, "scrap": 10.0, "craft_type": "interceptor"},
+			{"id": "scrap_a", "pos": Vector2(980, 560), "survivors": 3, "threats": 1, "scrap": 15.0, "craft_type": "freighter"},
+			{"id": "scrap_b", "pos": Vector2(1480, 980), "survivors": 2, "threats": 2, "scrap": 10.0, "craft_type": "interceptor"},
 		],
 	},
 	"silent_wake": {
 		"name": "Silent Wake",
 		"type": "sos",
-		"summary": "A cold convoy wreck. Life signs on the lead freighter.",
-		"objective": "Board the wrecks and bring survivors aboard.",
+		"summary": "A cold convoy wreck. Weak signals, no confirmed contacts.",
+		"objective": "Board the wrecks with shuttles. Clear threats and recover survivors if found.",
 		"spawn": Vector2(520, 480),
 		"safe_zone": true,
 		"safe_zone_name": "Silent Wake",
@@ -84,8 +85,8 @@ const MISSION_DEFS := {
 		"safe_zone_radius": 480.0,
 		"asteroid": false,
 		"derelicts": [
-			{"id": "wake_lead", "pos": Vector2(1180, 620), "survivors": 5, "scrap": 25.0, "craft_type": "freighter"},
-			{"id": "wake_escort", "pos": Vector2(1500, 860), "survivors": 1, "scrap": 10.0, "craft_type": "interceptor"},
+			{"id": "wake_lead", "pos": Vector2(1180, 620), "survivors": 5, "threats": 2, "scrap": 25.0, "craft_type": "freighter"},
+			{"id": "wake_escort", "pos": Vector2(1500, 860), "survivors": 1, "threats": 0, "scrap": 10.0, "craft_type": "interceptor"},
 		],
 	},
 	"iron_shoals": {
@@ -142,6 +143,10 @@ const MISSION_ORDER := [
 var current_mission_id: String = "haven"
 ## mission_id -> { derelict_id -> survivors_remaining }
 var derelict_survivors: Dictionary = {}
+## mission_id -> { derelict_id -> threats_remaining }
+var derelict_threats: Dictionary = {}
+## mission_id -> { derelict_id -> bool explored }
+var derelict_explored: Dictionary = {}
 ## mission_id -> { derelict_id -> scrap_remaining }
 var derelict_scrap: Dictionary = {}
 ## mission_id -> Array of wreck dicts spawned from destroyed ships
@@ -176,6 +181,8 @@ func _process(delta: float) -> void:
 func reset_for_new_game() -> void:
 	current_mission_id = "haven"
 	derelict_survivors.clear()
+	derelict_threats.clear()
+	derelict_explored.clear()
 	derelict_scrap.clear()
 	wrecks.clear()
 	_wreck_serial = 0
@@ -348,6 +355,64 @@ func set_survivors_remaining(mission_id: String, derelict_id: String, amount: in
 	derelict_survivors[mission_id] = mission_state
 
 
+func get_threats_remaining(mission_id: String, derelict_id: String) -> int:
+	var mission_state: Dictionary = derelict_threats.get(mission_id, {})
+	return int(mission_state.get(derelict_id, 0))
+
+
+func set_threats_remaining(mission_id: String, derelict_id: String, amount: int) -> void:
+	if not derelict_threats.has(mission_id):
+		derelict_threats[mission_id] = {}
+	var mission_state: Dictionary = derelict_threats[mission_id]
+	mission_state[derelict_id] = maxi(amount, 0)
+	derelict_threats[mission_id] = mission_state
+
+
+func is_derelict_explored(mission_id: String, derelict_id: String) -> bool:
+	var mission_state: Dictionary = derelict_explored.get(mission_id, {})
+	return bool(mission_state.get(derelict_id, false))
+
+
+func set_derelict_explored(mission_id: String, derelict_id: String, explored: bool = true) -> void:
+	if not derelict_explored.has(mission_id):
+		derelict_explored[mission_id] = {}
+	var mission_state: Dictionary = derelict_explored[mission_id]
+	mission_state[derelict_id] = explored
+	derelict_explored[mission_id] = mission_state
+
+
+func get_known_survivors(mission_id: String, derelict_id: String) -> int:
+	if not is_derelict_explored(mission_id, derelict_id):
+		return -1
+	return get_survivors_remaining(mission_id, derelict_id)
+
+
+func count_known_survivors_on_mission(mission_id: String) -> int:
+	_ensure_derelict_state(mission_id)
+	var total := 0
+	var survivor_state: Dictionary = derelict_survivors.get(mission_id, {})
+	for derelict_id in survivor_state.keys():
+		if not is_derelict_explored(mission_id, str(derelict_id)):
+			continue
+		total += int(survivor_state[derelict_id])
+	return total
+
+
+func count_unexplored_derelicts(mission_id: String) -> int:
+	_ensure_derelict_state(mission_id)
+	var total := 0
+	var def := get_mission_def(mission_id)
+	for entry in def.get("derelicts", []):
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var derelict_id := str(entry.get("id", ""))
+		if derelict_id == "":
+			continue
+		if not is_derelict_explored(mission_id, derelict_id):
+			total += 1
+	return total
+
+
 func get_scrap_remaining(mission_id: String, derelict_id: String) -> float:
 	var mission_state: Dictionary = derelict_scrap.get(mission_id, {})
 	return float(mission_state.get(derelict_id, 0.0))
@@ -373,6 +438,8 @@ func extract_scrap(mission_id: String, derelict_id: String, amount: float) -> fl
 
 
 func rescue_one(mission_id: String, derelict_id: String) -> bool:
+	if not is_derelict_explored(mission_id, derelict_id):
+		return false
 	var remaining := get_survivors_remaining(mission_id, derelict_id)
 	if remaining <= 0:
 		return false
@@ -381,7 +448,16 @@ func rescue_one(mission_id: String, derelict_id: String) -> bool:
 	return true
 
 
+func clear_one_threat(mission_id: String, derelict_id: String) -> bool:
+	var remaining := get_threats_remaining(mission_id, derelict_id)
+	if remaining <= 0:
+		return false
+	set_threats_remaining(mission_id, derelict_id, remaining - 1)
+	return true
+
+
 func count_survivors_on_mission(mission_id: String) -> int:
+	## Hidden total — prefer count_known_survivors_on_mission for UI.
 	_ensure_derelict_state(mission_id)
 	var total := 0
 	var mission_state: Dictionary = derelict_survivors.get(mission_id, {})
@@ -406,6 +482,7 @@ func add_wreck(world_pos: Vector2, scrap: float, craft_type: String) -> Dictiona
 		"y": world_pos.y,
 		"scrap": maxf(scrap, 0.0),
 		"survivors": 0,
+		"threats": 0,
 		"craft_type": craft_type,
 		"dynamic": true,
 	}
@@ -420,6 +497,13 @@ func add_wreck(world_pos: Vector2, scrap: float, craft_type: String) -> Dictiona
 	if not derelict_survivors.has(current_mission_id):
 		derelict_survivors[current_mission_id] = {}
 	derelict_survivors[current_mission_id][wreck_id] = 0
+	if not derelict_threats.has(current_mission_id):
+		derelict_threats[current_mission_id] = {}
+	derelict_threats[current_mission_id][wreck_id] = 0
+	## Fresh combat wrecks are already "scouted" — scrap only, no boarding mystery.
+	if not derelict_explored.has(current_mission_id):
+		derelict_explored[current_mission_id] = {}
+	derelict_explored[current_mission_id][wreck_id] = true
 	wreck_added.emit(wreck)
 	return wreck
 
@@ -448,6 +532,8 @@ func to_save_dict() -> Dictionary:
 	return {
 		"current_mission_id": current_mission_id,
 		"derelict_survivors": derelict_survivors.duplicate(true),
+		"derelict_threats": derelict_threats.duplicate(true),
+		"derelict_explored": derelict_explored.duplicate(true),
 		"derelict_scrap": derelict_scrap.duplicate(true),
 		"wrecks": wrecks.duplicate(true),
 		"wreck_serial": _wreck_serial,
@@ -466,6 +552,8 @@ func apply_save_dict(data: Dictionary) -> void:
 		mission_id = "haven"
 	current_mission_id = mission_id
 	derelict_survivors.clear()
+	derelict_threats.clear()
+	derelict_explored.clear()
 	derelict_scrap.clear()
 	wrecks.clear()
 	_wreck_serial = maxi(int(data.get("wreck_serial", 0)), 0)
@@ -488,6 +576,8 @@ func apply_save_dict(data: Dictionary) -> void:
 			for derelict_id in entry.keys():
 				cleaned[str(derelict_id)] = maxi(int(entry[derelict_id]), 0)
 			derelict_survivors[mid] = cleaned
+	_load_bool_map(data.get("derelict_explored", {}), derelict_explored)
+	_load_int_map(data.get("derelict_threats", {}), derelict_threats)
 	var saved_scrap = data.get("derelict_scrap", {})
 	if typeof(saved_scrap) == TYPE_DICTIONARY:
 		for key in saved_scrap.keys():
@@ -514,8 +604,9 @@ func apply_save_dict(data: Dictionary) -> void:
 			for item in list:
 				if typeof(item) != TYPE_DICTIONARY:
 					continue
+				var wreck_id := str(item.get("id", ""))
 				cleaned_list.append({
-					"id": str(item.get("id", "")),
+					"id": wreck_id,
 					"x": float(item.get("x", 0.0)),
 					"y": float(item.get("y", 0.0)),
 					"scrap": maxf(float(item.get("scrap", 0.0)), 0.0),
@@ -523,10 +614,50 @@ func apply_save_dict(data: Dictionary) -> void:
 					"craft_type": str(item.get("craft_type", "")),
 					"dynamic": true,
 				})
+				if wreck_id != "":
+					if not derelict_explored.has(mid):
+						derelict_explored[mid] = {}
+					derelict_explored[mid][wreck_id] = true
+					if not derelict_threats.has(mid):
+						derelict_threats[mid] = {}
+					if not derelict_threats[mid].has(wreck_id):
+						derelict_threats[mid][wreck_id] = 0
 			wrecks[mid] = cleaned_list
 	_ensure_derelict_state(current_mission_id)
 	jump_drive_changed.emit()
 	mission_changed.emit()
+
+
+func _load_int_map(saved, dest: Dictionary) -> void:
+	if typeof(saved) != TYPE_DICTIONARY:
+		return
+	for key in saved.keys():
+		var mid := str(key)
+		if not MISSION_DEFS.has(mid):
+			continue
+		var entry = saved[key]
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var cleaned: Dictionary = {}
+		for derelict_id in entry.keys():
+			cleaned[str(derelict_id)] = maxi(int(entry[derelict_id]), 0)
+		dest[mid] = cleaned
+
+
+func _load_bool_map(saved, dest: Dictionary) -> void:
+	if typeof(saved) != TYPE_DICTIONARY:
+		return
+	for key in saved.keys():
+		var mid := str(key)
+		if not MISSION_DEFS.has(mid):
+			continue
+		var entry = saved[key]
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var cleaned: Dictionary = {}
+		for derelict_id in entry.keys():
+			cleaned[str(derelict_id)] = bool(entry[derelict_id])
+		dest[mid] = cleaned
 
 
 func _ensure_derelict_state(mission_id: String) -> void:
@@ -535,9 +666,15 @@ func _ensure_derelict_state(mission_id: String) -> void:
 		return
 	if not derelict_survivors.has(mission_id):
 		derelict_survivors[mission_id] = {}
+	if not derelict_threats.has(mission_id):
+		derelict_threats[mission_id] = {}
+	if not derelict_explored.has(mission_id):
+		derelict_explored[mission_id] = {}
 	if not derelict_scrap.has(mission_id):
 		derelict_scrap[mission_id] = {}
 	var survivor_state: Dictionary = derelict_survivors[mission_id]
+	var threat_state: Dictionary = derelict_threats[mission_id]
+	var explored_state: Dictionary = derelict_explored[mission_id]
 	var scrap_state: Dictionary = derelict_scrap[mission_id]
 	for entry in def.get("derelicts", []):
 		if typeof(entry) != TYPE_DICTIONARY:
@@ -548,9 +685,15 @@ func _ensure_derelict_state(mission_id: String) -> void:
 		## Only seed newly added template wrecks; never revive cleared ones.
 		if not survivor_state.has(derelict_id):
 			survivor_state[derelict_id] = maxi(int(entry.get("survivors", 0)), 0)
+		if not threat_state.has(derelict_id):
+			threat_state[derelict_id] = maxi(int(entry.get("threats", 0)), 0)
+		if not explored_state.has(derelict_id):
+			explored_state[derelict_id] = false
 		if not scrap_state.has(derelict_id):
 			scrap_state[derelict_id] = maxf(float(entry.get("scrap", 0.0)), 0.0)
 	derelict_survivors[mission_id] = survivor_state
+	derelict_threats[mission_id] = threat_state
+	derelict_explored[mission_id] = explored_state
 	derelict_scrap[mission_id] = scrap_state
 	if not wrecks.has(mission_id):
 		wrecks[mission_id] = []

@@ -29,7 +29,7 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 168.0
+offset_left = 180.0
 offset_top = 56.0
 offset_right = -168.0
 offset_bottom = -8.0
@@ -114,7 +114,7 @@ position = Vector2(700, 420)
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_left = 168.0
+offset_left = 180.0
 offset_right = -168.0
 offset_bottom = 52.0
 grow_horizontal = 2
@@ -146,7 +146,7 @@ layout_mode = 1
 anchors_preset = 9
 anchor_bottom = 1.0
 offset_top = 56.0
-offset_right = 168.0
+offset_right = 180.0
 grow_horizontal = 0
 grow_vertical = 2
 theme_override_constants/margin_left = 12
@@ -190,9 +190,52 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_colors/font_color = Color(0.78, 0.84, 0.98, 1)
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 12
 text = "Click the carrier or a strike craft on the map."
 autowrap_mode = 3
+
+[node name="CommandsHeader" type="Label" parent="SelectionBar/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.88, 1, 1)
+theme_override_font_sizes/font_size = 13
+text = "Commands"
+horizontal_alignment = 1
+
+[node name="CmdStopButton" type="Button" parent="SelectionBar/Panel/Margin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+text = "Stop"
+
+[node name="CmdReturnButton" type="Button" parent="SelectionBar/Panel/Margin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+text = "Return to carrier"
+
+[node name="CmdMineButton" type="Button" parent="SelectionBar/Panel/Margin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+text = "Mine nearest"
+
+[node name="CmdRescueButton" type="Button" parent="SelectionBar/Panel/Margin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+text = "Board nearest"
+
+[node name="CmdAttackButton" type="Button" parent="SelectionBar/Panel/Margin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+text = "Attack nearest"
+
+[node name="CmdRecallButton" type="Button" parent="SelectionBar/Panel/Margin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+text = "Recall"
 
 [node name="SideBar" type="MarginContainer" parent="."]
 layout_mode = 1
@@ -251,8 +294,14 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.75, 0.8, 0.95, 1)
 theme_override_font_sizes/font_size = 12
-text = "Hangar builds/launches. RMB Rescue on survivors; Miner on scrap/ore."
+text = "Hangar builds/launches. RMB Shuttle on derelicts to board; Miner on scrap/ore."
 horizontal_alignment = 1
 autowrap_mode = 3
 
+[connection signal="pressed" from="SelectionBar/Panel/Margin/VBox/CmdStopButton" to="." method="_on_cmd_stop_pressed"]
+[connection signal="pressed" from="SelectionBar/Panel/Margin/VBox/CmdReturnButton" to="." method="_on_cmd_return_pressed"]
+[connection signal="pressed" from="SelectionBar/Panel/Margin/VBox/CmdMineButton" to="." method="_on_cmd_mine_pressed"]
+[connection signal="pressed" from="SelectionBar/Panel/Margin/VBox/CmdRescueButton" to="." method="_on_cmd_rescue_pressed"]
+[connection signal="pressed" from="SelectionBar/Panel/Margin/VBox/CmdAttackButton" to="." method="_on_cmd_attack_pressed"]
+[connection signal="pressed" from="SelectionBar/Panel/Margin/VBox/CmdRecallButton" to="." method="_on_cmd_recall_pressed"]
 [connection signal="pressed" from="SideBar/Panel/Margin/VBox/RecallButton" to="." method="_on_recall_pressed"]

@@ -19,7 +19,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 0
-color = Color(0.05, 0.04, 0.08, 0.92)
+color = Color(0.05, 0.04, 0.08, 0)
 
 [node name="Margin" type="MarginContainer" parent="."]
 layout_mode = 1
@@ -130,5 +130,5 @@ autowrap_mode = 3
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.75, 0.9, 1)
 theme_override_font_sizes/font_size = 14
-text = "Carrier is fully built. Assign crew to bring systems online. Grow the roster with Rescue craft on derelicts."
+text = "Carrier is fully built. Assign crew to bring systems online. Grow the roster by boarding derelicts with shuttles."
 horizontal_alignment = 1

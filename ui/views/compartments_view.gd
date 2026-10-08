@@ -83,58 +83,73 @@ func _make_module_card(compartment_id: String) -> PanelContainer:
 	var crew_max := CrewData.get_max_assignable(compartment_id)
 	var crewed := CrewData.get_crewed_count(compartment_id)
 	var selected := compartment_id == _selected_compartment
+	var accent: Color = FUNCTION_COLORS.get(function_id, Color(0.6, 0.6, 0.75))
 
 	var card := PanelContainer.new()
-	card.custom_minimum_size = Vector2(148, 168)
-	if selected:
-		card.modulate = Color(1.08, 1.05, 1.15, 1)
-	elif crewed <= 0:
-		card.modulate = Color(0.72, 0.74, 0.82, 1)
+	card.custom_minimum_size = Vector2(118, 118)
+	card.clip_contents = true
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	card.gui_input.connect(_on_card_gui.bind(compartment_id))
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 8)
-	margin.add_theme_constant_override("margin_top", 8)
-	margin.add_theme_constant_override("margin_right", 8)
-	margin.add_theme_constant_override("margin_bottom", 8)
-	card.add_child(margin)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.06, 0.05, 0.09, 0.35)
+	style.border_color = Color(0.85, 0.9, 1.0, 0.95) if selected else accent.darkened(0.25)
+	style.set_border_width_all(2 if selected else 1)
+	style.set_corner_radius_all(8)
+	style.set_content_margin_all(0)
+	card.add_theme_stylebox_override("panel", style)
+	if crewed <= 0 and not selected:
+		card.modulate = Color(0.82, 0.84, 0.9, 1)
 
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 4)
-	margin.add_child(column)
+	var host := Control.new()
+	host.custom_minimum_size = Vector2(118, 118)
+	host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(host)
 
-	var icon_button := Button.new()
-	icon_button.custom_minimum_size = Vector2(0, 64)
-	icon_button.focus_mode = Control.FOCUS_NONE
-	icon_button.pressed.connect(_on_select_pressed.bind(compartment_id))
-	column.add_child(icon_button)
-
-	var icon_host := CenterContainer.new()
-	icon_host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	icon_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon_button.add_child(icon_host)
-
-	var icon := ColorRect.new()
-	icon.custom_minimum_size = Vector2(52, 52)
-	icon.color = FUNCTION_COLORS.get(function_id, Color(0.6, 0.6, 0.75))
-	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon_host.add_child(icon)
+	## Colored icon fills the card behind the controls.
+	var icon_bg := ColorRect.new()
+	icon_bg.color = Color(accent.r, accent.g, accent.b, 0.55)
+	icon_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	host.add_child(icon_bg)
 
 	var glyph := Label.new()
 	glyph.text = str(FUNCTION_GLYPHS.get(function_id, "?"))
 	glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	glyph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	glyph.add_theme_font_size_override("font_size", 26)
-	glyph.add_theme_color_override("font_color", Color(0.08, 0.06, 0.12, 1))
-	glyph.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	glyph.add_theme_font_size_override("font_size", 48)
+	glyph.add_theme_color_override("font_color", Color(0.05, 0.04, 0.08, 0.28))
 	glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon.add_child(glyph)
+	glyph.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	host.add_child(glyph)
+
+	var shade := ColorRect.new()
+	shade.color = Color(0.04, 0.03, 0.07, 0.28)
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	host.add_child(shade)
+
+	var margin := MarginContainer.new()
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_right", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	host.add_child(margin)
+
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 4)
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_child(column)
 
 	var name_label := Label.new()
 	name_label.text = str(def.get("name", compartment_id))
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	name_label.add_theme_font_size_override("font_size", 12)
-	name_label.add_theme_color_override("font_color", Color(0.92, 0.9, 1, 1))
+	name_label.add_theme_color_override("font_color", Color(0.98, 0.96, 1, 1))
+	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(name_label)
 
 	var status := Label.new()
@@ -143,12 +158,17 @@ func _make_module_card(compartment_id: String) -> PanelContainer:
 	status.add_theme_font_size_override("font_size", 11)
 	status.add_theme_color_override(
 		"font_color",
-		Color(0.55, 0.9, 0.65, 1) if crewed > 0 else Color(0.85, 0.55, 0.5, 1)
+		Color(0.65, 1.0, 0.75, 1) if crewed > 0 else Color(1.0, 0.7, 0.65, 1)
 	)
+	status.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(status)
 
-	column.add_child(_make_stepper_row(
-		"Crew",
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(spacer)
+
+	column.add_child(_make_crew_stepper(
 		"%d/%d" % [crew_assigned, crew_max],
 		CrewData.can_unassign(compartment_id),
 		CrewData.can_assign(compartment_id),
@@ -159,52 +179,48 @@ func _make_module_card(compartment_id: String) -> PanelContainer:
 	return card
 
 
-func _make_stepper_row(
-	label_text: String,
+func _make_crew_stepper(
 	value_text: String,
 	minus_enabled: bool,
 	plus_enabled: bool,
 	minus_callable: Callable,
 	plus_callable: Callable
-) -> VBoxContainer:
-	var block := VBoxContainer.new()
-	block.add_theme_constant_override("separation", 2)
-
-	var caption := Label.new()
-	caption.text = label_text
-	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	caption.add_theme_font_size_override("font_size", 11)
-	caption.add_theme_color_override("font_color", Color(0.7, 0.75, 0.9, 1))
-	block.add_child(caption)
-
+) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 6)
-	block.add_child(row)
+	row.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var minus := Button.new()
 	minus.text = "-"
-	minus.custom_minimum_size = Vector2(30, 26)
+	minus.custom_minimum_size = Vector2(28, 24)
 	minus.disabled = not minus_enabled
 	minus.pressed.connect(minus_callable)
 	row.add_child(minus)
 
 	var value := Label.new()
 	value.text = value_text
-	value.custom_minimum_size = Vector2(40, 0)
+	value.custom_minimum_size = Vector2(36, 0)
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	value.add_theme_font_size_override("font_size", 13)
-	value.add_theme_color_override("font_color", Color(0.85, 0.9, 1, 1))
+	value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	value.add_theme_font_size_override("font_size", 12)
+	value.add_theme_color_override("font_color", Color(0.95, 0.95, 1, 1))
+	value.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(value)
 
 	var plus := Button.new()
 	plus.text = "+"
-	plus.custom_minimum_size = Vector2(30, 26)
+	plus.custom_minimum_size = Vector2(28, 24)
 	plus.disabled = not plus_enabled
 	plus.pressed.connect(plus_callable)
 	row.add_child(plus)
 
-	return block
+	return row
+
+
+func _on_card_gui(event: InputEvent, compartment_id: String) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_on_select_pressed(compartment_id)
 
 
 func _clear_children(node: Node) -> void:

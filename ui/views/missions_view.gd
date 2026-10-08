@@ -64,14 +64,17 @@ func _rebuild_mission_list() -> void:
 		for mission_id in mission_ids:
 			var def := MissionData.get_mission_def(mission_id)
 			var button := Button.new()
-			var survivors := MissionData.count_survivors_on_mission(mission_id)
+			var known := MissionData.count_known_survivors_on_mission(mission_id)
+			var unexplored := MissionData.count_unexplored_derelicts(mission_id)
 			var mark := " (here)" if mission_id == MissionData.current_mission_id else ""
-			var rescue_bit := ""
-			if survivors > 0:
-				rescue_bit = " · %d to rescue" % survivors
+			var board_bit := ""
+			if unexplored > 0:
+				board_bit = " · %d unexplored" % unexplored
+			elif known > 0:
+				board_bit = " · %d to extract" % known
 			elif not def.get("derelicts", []).is_empty():
-				rescue_bit = " · cleared"
-			button.text = "%s%s%s" % [str(def.get("name", mission_id)), mark, rescue_bit]
+				board_bit = " · cleared"
+			button.text = "%s%s%s" % [str(def.get("name", mission_id)), mark, board_bit]
 			button.toggle_mode = true
 			button.button_pressed = mission_id == _selected_mission
 			button.pressed.connect(_on_mission_pressed.bind(mission_id))
@@ -84,7 +87,8 @@ func _refresh_details() -> void:
 		_details.text = "Select a mission."
 		return
 	var type_id := MissionData.get_mission_type(_selected_mission)
-	var survivors := MissionData.count_survivors_on_mission(_selected_mission)
+	var known := MissionData.count_known_survivors_on_mission(_selected_mission)
+	var unexplored := MissionData.count_unexplored_derelicts(_selected_mission)
 	var lines: PackedStringArray = [
 		str(def.get("name", _selected_mission)),
 		"Type: %s" % MissionData.get_type_label(type_id),
@@ -103,11 +107,19 @@ func _refresh_details() -> void:
 	if derelicts.is_empty() and wreck_count <= 0:
 		lines.append("Derelicts: none")
 	else:
+		var survivor_line := "unknown until boarded"
+		if unexplored <= 0:
+			survivor_line = "%d known" % known
+		elif known > 0:
+			survivor_line = "%d known · %d unexplored" % [known, unexplored]
+		else:
+			survivor_line = "%d unexplored" % unexplored
 		lines.append(
-			"Derelicts: %d · Wrecks: %d · Survivors: %d"
-			% [derelicts.size(), wreck_count, survivors]
+			"Derelicts: %d · Wrecks: %d · Survivors: %s"
+			% [derelicts.size(), wreck_count, survivor_line]
 		)
-		lines.append("Hangar → launch Rescue → Map → RMB derelict to extract survivors.")
+		lines.append("Hangar → launch Shuttle (crew) → Map → RMB derelict to board.")
+		lines.append("Boarding explores wrecks, clears threats, then recovers survivors if found.")
 		lines.append("Hangar → launch Miner → Map → RMB scrap/asteroid to salvage.")
 	if _selected_mission == MissionData.current_mission_id:
 		lines.append("")

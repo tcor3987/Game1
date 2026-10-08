@@ -4,11 +4,14 @@ signal selected_changed(is_selected: bool)
 signal destroyed(craft: CharacterBody2D)
 
 enum MinerState { IDLE, TO_TARGET, EXTRACTING, TO_CARRIER, UNLOADING }
-enum RescueState { IDLE, TO_TARGET, EXTRACTING }
+enum BoardState { IDLE, TO_TARGET, BOARDING }
 
 @export var arrive_distance: float = 10.0
 
 var craft_id: String = "interceptor"
+var instance_uid: String = ""
+var callsign: String = ""
+var crew_count: int = 1
 var is_selected: bool = false
 var hp: float = 40.0
 var max_hp: float = 40.0
@@ -23,13 +26,18 @@ var _miner_state: MinerState = MinerState.IDLE
 var _extract_target: Node2D = null
 var _pending_extract: Node2D = null
 var _carrier: Node2D = null
-var _rescue_state: RescueState = RescueState.IDLE
-var _rescue_target: Node2D = null
+var _board_state: BoardState = BoardState.IDLE
+var _board_target: Node2D = null
 
 
-func setup(id: String) -> void:
+func setup(id: String, uid: String = "", p_callsign: String = "", p_crew: int = 1) -> void:
 	craft_id = id
+	instance_uid = uid
+	callsign = p_callsign
+	crew_count = maxi(p_crew, 1)
 	var def := FleetData.get_strike_def(craft_id)
+	if callsign == "":
+		callsign = str(def.get("name", craft_id))
 	max_hp = float(def.get("max_hp", 40.0))
 	hp = max_hp
 	miner_capacity = float(def.get("cargo", 30.0))
@@ -42,8 +50,13 @@ func is_miner() -> bool:
 	return str(FleetData.get_strike_def(craft_id).get("role", "")) == "miner"
 
 
+func is_boarding() -> bool:
+	return str(FleetData.get_strike_def(craft_id).get("role", "")) == "boarding"
+
+
 func is_rescue() -> bool:
-	return str(FleetData.get_strike_def(craft_id).get("role", "")) == "rescue"
+	## Legacy alias used by older call sites.
+	return is_boarding()
 
 
 func _ready() -> void:
@@ -55,8 +68,8 @@ func _physics_process(delta: float) -> void:
 		_process_miner(delta)
 		return
 
-	if is_rescue() and _rescue_state != RescueState.IDLE:
-		_process_rescue(delta)
+	if is_boarding() and _board_state != BoardState.IDLE:
+		_process_boarding(delta)
 		return
 
 	if not is_instance_valid(_attack_target):
@@ -82,33 +95,45 @@ func _physics_process(delta: float) -> void:
 func issue_move(world_position: Vector2) -> void:
 	_attack_target = null
 	_stop_mining_loop()
-	_stop_rescue_loop()
+	_stop_board_loop()
 	_target = world_position
+
+
+func issue_stop() -> void:
+	_attack_target = null
+	_stop_mining_loop()
+	_stop_board_loop()
+	_target = null
+	velocity = Vector2.ZERO
 
 
 func issue_attack(target: Node2D) -> void:
 	_stop_mining_loop()
-	_stop_rescue_loop()
+	_stop_board_loop()
 	_attack_target = target
 	_target = null
 
 
-func start_rescue(derelict: Node2D) -> void:
-	if not is_rescue() or not is_instance_valid(derelict):
+func start_board(derelict: Node2D) -> void:
+	if not is_boarding() or not is_instance_valid(derelict):
 		return
-	if not derelict.has_method("has_survivors") or not derelict.has_survivors():
+	if not derelict.has_method("needs_boarding") or not derelict.needs_boarding():
 		return
 	_stop_mining_loop()
 	_attack_target = null
 	_target = null
-	_rescue_target = derelict
-	_rescue_state = RescueState.TO_TARGET
+	_board_target = derelict
+	_board_state = BoardState.TO_TARGET
+
+
+func start_rescue(derelict: Node2D) -> void:
+	start_board(derelict)
 
 
 func start_mining(extract_target: Node2D, carrier: Node2D) -> void:
 	if not is_miner() or not is_instance_valid(extract_target):
 		return
-	_stop_rescue_loop()
+	_stop_board_loop()
 	_carrier = carrier
 	_attack_target = null
 	_target = null
@@ -282,38 +307,34 @@ func _stop_mining_loop() -> void:
 	_pending_extract = null
 
 
-func _stop_rescue_loop() -> void:
-	_rescue_state = RescueState.IDLE
-	_rescue_target = null
+func _stop_board_loop() -> void:
+	_board_state = BoardState.IDLE
+	_board_target = null
 
 
-func _process_rescue(delta: float) -> void:
-	if not is_instance_valid(_rescue_target):
-		_stop_rescue_loop()
+func _process_boarding(delta: float) -> void:
+	if not is_instance_valid(_board_target):
+		_stop_board_loop()
 		velocity = Vector2.ZERO
 		return
-	if not _rescue_target.has_method("has_survivors") or not _rescue_target.has_survivors():
-		_stop_rescue_loop()
+	if not _board_target.has_method("needs_boarding") or not _board_target.needs_boarding():
+		_stop_board_loop()
 		velocity = Vector2.ZERO
 		return
 
-	var hold_distance := arrive_distance + 24.0
-	if _rescue_target.has_method("in_rescue_range"):
-		## Stay inside the derelict rescue bubble once close enough.
-		hold_distance = 48.0
-
-	match _rescue_state:
-		RescueState.TO_TARGET:
-			var to_target := _rescue_target.global_position - global_position
+	var hold_distance := 48.0
+	match _board_state:
+		BoardState.TO_TARGET:
+			var to_target := _board_target.global_position - global_position
 			if to_target.length() <= hold_distance:
-				_rescue_state = RescueState.EXTRACTING
+				_board_state = BoardState.BOARDING
 				velocity = Vector2.ZERO
 			else:
 				_steer_toward(to_target, delta)
-		RescueState.EXTRACTING:
-			var to_hold := _rescue_target.global_position - global_position
+		BoardState.BOARDING:
+			var to_hold := _board_target.global_position - global_position
 			if to_hold.length() > hold_distance * 1.35:
-				_rescue_state = RescueState.TO_TARGET
+				_board_state = BoardState.TO_TARGET
 			else:
 				velocity = Vector2.ZERO
 		_:
@@ -358,7 +379,7 @@ func _apply_visuals() -> void:
 			body.polygon = PackedVector2Array([
 				Vector2(12, 0), Vector2(4, -10), Vector2(-14, -8), Vector2(-14, 8), Vector2(4, 10)
 			])
-		"rescue":
+		"shuttle", "rescue":
 			body.color = Color(0.55, 0.85, 1.0)
 			body.polygon = PackedVector2Array([
 				Vector2(13, 0), Vector2(2, -9), Vector2(-12, -6), Vector2(-8, 0), Vector2(-12, 6), Vector2(2, 9)

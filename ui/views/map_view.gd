@@ -5,7 +5,7 @@ const STRIKE_SCENE := preload("res://ship/strike_craft.tscn")
 const ASTEROID_SCENE := preload("res://ship/asteroid.tscn")
 const DERELICT_SCENE := preload("res://ship/derelict.tscn")
 
-const CRAFT_ORDER := ["interceptor", "bomber", "miner", "rescue"]
+const CRAFT_ORDER := ["interceptor", "bomber", "miner", "shuttle"]
 
 @onready var _viewport: SubViewport = %MapViewport
 @onready var _viewport_host: SubViewportContainer = $ViewportHost
@@ -20,6 +20,12 @@ const CRAFT_ORDER := ["interceptor", "bomber", "miner", "rescue"]
 @onready var _recall_button: Button = %RecallButton
 @onready var _selection_title: Label = %SelectionTitle
 @onready var _selection_body: Label = %SelectionBody
+@onready var _cmd_stop: Button = %CmdStopButton
+@onready var _cmd_return: Button = %CmdReturnButton
+@onready var _cmd_mine: Button = %CmdMineButton
+@onready var _cmd_rescue: Button = %CmdRescueButton
+@onready var _cmd_attack: Button = %CmdAttackButton
+@onready var _cmd_recall: Button = %CmdRecallButton
 
 var _panning := false
 var _pan_last := Vector2.ZERO
@@ -74,7 +80,7 @@ func _apply_mission_world() -> void:
 	if bool(def.get("asteroid", false)):
 		_spawn_asteroid(def.get("asteroid_pos", Vector2(1320, 740)))
 	_spawn_derelicts(def)
-	_hint_label.text = "%s · Build/launch in Hangar · RMB Rescue on survivors · RMB Miner on scrap/ore" % str(def.get("name", "Sector"))
+	_hint_label.text = "%s · Hangar launches · RMB Shuttle on derelicts to board · RMB Miner on scrap/ore" % str(def.get("name", "Sector"))
 
 
 func _clear_mission_props() -> void:
@@ -136,7 +142,7 @@ func _exit_tree() -> void:
 func _process(delta: float) -> void:
 	_handle_camera_keys(delta)
 	_update_move_marker()
-	_tick_rescues(delta)
+	_tick_boarding(delta)
 	_refresh_status()
 
 
@@ -151,6 +157,119 @@ func _on_recall_pressed() -> void:
 	_recall_selected_or_all()
 
 
+func _on_cmd_stop_pressed() -> void:
+	_prune_selected_craft()
+	if _ship.is_selected and _ship.has_method("issue_stop"):
+		_ship.issue_stop()
+	for craft in _selected_craft:
+		if is_instance_valid(craft) and craft.has_method("issue_stop"):
+			craft.issue_stop()
+	_refresh_status()
+
+
+func _on_cmd_return_pressed() -> void:
+	_prune_selected_craft()
+	for craft in _selected_craft:
+		if is_instance_valid(craft) and craft.has_method("issue_move"):
+			craft.issue_move(_ship.global_position)
+	_refresh_status()
+
+
+func _on_cmd_mine_pressed() -> void:
+	_prune_selected_craft()
+	for craft in _selected_craft:
+		if not is_instance_valid(craft) or not craft.has_method("is_miner") or not craft.is_miner():
+			continue
+		var target := _nearest_extract_target(craft.global_position)
+		if target != null:
+			craft.start_mining(target, _ship)
+	_refresh_status()
+
+
+func _on_cmd_rescue_pressed() -> void:
+	_prune_selected_craft()
+	for craft in _selected_craft:
+		if not is_instance_valid(craft):
+			continue
+		if not craft.has_method("is_boarding") or not craft.is_boarding():
+			continue
+		var target := _nearest_board_target(craft.global_position)
+		if target != null:
+			craft.start_board(target)
+	_refresh_status()
+
+
+func _on_cmd_attack_pressed() -> void:
+	_prune_selected_craft()
+	for craft in _selected_craft:
+		if not is_instance_valid(craft) or not craft.has_method("issue_attack"):
+			continue
+		if float(FleetData.get_strike_def(str(craft.craft_id)).get("damage", 0.0)) <= 0.0:
+			continue
+		var enemy := _nearest_enemy(craft.global_position)
+		if enemy != null:
+			craft.issue_attack(enemy)
+	_refresh_status()
+
+
+func _on_cmd_recall_pressed() -> void:
+	_prune_selected_craft()
+	if _selected_craft.is_empty():
+		return
+	for craft in _selected_craft.duplicate():
+		if is_instance_valid(craft):
+			_recall_craft(craft)
+	_refresh_status()
+
+
+func _nearest_extract_target(from: Vector2) -> Node2D:
+	var best: Node2D = null
+	var best_dist := INF
+	for derelict in _derelicts:
+		if not is_instance_valid(derelict):
+			continue
+		if not derelict.has_method("has_scrap") or not derelict.has_scrap():
+			continue
+		var dist := from.distance_to(derelict.global_position)
+		if dist < best_dist:
+			best_dist = dist
+			best = derelict
+	if is_instance_valid(_asteroid) and _asteroid.has_method("has_ore") and _asteroid.has_ore():
+		var dist := from.distance_to(_asteroid.global_position)
+		if dist < best_dist:
+			best = _asteroid
+	return best
+
+
+func _nearest_board_target(from: Vector2) -> Node2D:
+	var best: Node2D = null
+	var best_dist := INF
+	for derelict in _derelicts:
+		if not is_instance_valid(derelict):
+			continue
+		if not derelict.has_method("needs_boarding") or not derelict.needs_boarding():
+			continue
+		var dist := from.distance_to(derelict.global_position)
+		if dist < best_dist:
+			best_dist = dist
+			best = derelict
+	return best
+
+
+func _nearest_enemy(from: Vector2) -> Node2D:
+	var best: Node2D = null
+	var best_dist := INF
+	for node in get_tree().get_nodes_in_group("enemies"):
+		if not is_instance_valid(node) or not (node is Node2D):
+			continue
+		var enemy := node as Node2D
+		var dist := from.distance_to(enemy.global_position)
+		if dist < best_dist:
+			best_dist = dist
+			best = enemy
+	return best
+
+
 func _request_fleet_ui_refresh() -> void:
 	if _fleet_ui_queued:
 		return
@@ -160,6 +279,9 @@ func _request_fleet_ui_refresh() -> void:
 
 func _run_fleet_ui_refresh() -> void:
 	_fleet_ui_queued = false
+	## Hangar can launch while Map stays mounted under popups.
+	if not FleetData.parked_deployed.is_empty():
+		_respawn_parked_craft()
 	_refresh_status()
 
 
@@ -227,15 +349,15 @@ func _select_at(world_pos: Vector2) -> void:
 func _command_at(world_pos: Vector2) -> void:
 	var clamped := world_pos.clamp(Vector2(40, 40), WORLD_SIZE - Vector2(40, 40))
 	var extract_target := _extract_target_at(world_pos)
-	var rescue_target := _rescue_target_at(world_pos)
+	var board_target := _board_target_at(world_pos)
 
 	if not _selected_craft.is_empty():
 		var ordered_special := false
 		for craft in _selected_craft:
 			if not is_instance_valid(craft):
 				continue
-			if rescue_target != null and craft.has_method("is_rescue") and craft.is_rescue():
-				craft.start_rescue(rescue_target)
+			if board_target != null and craft.has_method("is_boarding") and craft.is_boarding():
+				craft.start_board(board_target)
 				ordered_special = true
 			elif extract_target != null and craft.has_method("is_miner") and craft.is_miner():
 				craft.start_mining(extract_target, _ship)
@@ -264,9 +386,9 @@ func _extract_target_at(world_pos: Vector2) -> Node2D:
 	return null
 
 
-func _rescue_target_at(world_pos: Vector2) -> Node2D:
+func _board_target_at(world_pos: Vector2) -> Node2D:
 	var derelict := _derelict_at(world_pos)
-	if derelict != null and derelict.has_method("has_survivors") and derelict.has_survivors():
+	if derelict != null and derelict.has_method("needs_boarding") and derelict.needs_boarding():
 		return derelict
 	return null
 
@@ -313,10 +435,13 @@ func _spawn_derelicts(def: Dictionary) -> void:
 
 
 func _spawn_derelict_node(derelict_id: String, world_pos: Vector2, craft_type: String) -> void:
-	var survivors := MissionData.get_survivors_remaining(MissionData.current_mission_id, derelict_id)
-	var scrap := MissionData.get_scrap_remaining(MissionData.current_mission_id, derelict_id)
+	var mid := MissionData.current_mission_id
+	var survivors := MissionData.get_survivors_remaining(mid, derelict_id)
+	var threats := MissionData.get_threats_remaining(mid, derelict_id)
+	var explored := MissionData.is_derelict_explored(mid, derelict_id)
+	var scrap := MissionData.get_scrap_remaining(mid, derelict_id)
 	var derelict: Node2D = DERELICT_SCENE.instantiate()
-	derelict.setup(MissionData.current_mission_id, derelict_id, survivors, scrap, craft_type)
+	derelict.setup(mid, derelict_id, survivors, scrap, craft_type, threats, explored)
 	derelict.global_position = world_pos
 	_world.add_child(derelict)
 	_derelicts.append(derelict)
@@ -338,25 +463,34 @@ func _on_wreck_added(wreck: Dictionary) -> void:
 	)
 
 
-func _tick_rescues(delta: float) -> void:
+func _tick_boarding(delta: float) -> void:
 	for derelict in _derelicts:
-		if not is_instance_valid(derelict) or not derelict.has_method("rescue_tick"):
+		if not is_instance_valid(derelict) or not derelict.has_method("board_tick"):
 			continue
 		var present := false
+		var soldiers := 0
 		for craft in _strike_craft:
 			if not is_instance_valid(craft):
 				continue
-			if not craft.has_method("is_rescue") or not craft.is_rescue():
+			if not craft.has_method("is_boarding") or not craft.is_boarding():
 				continue
-			if derelict.in_rescue_range(craft.global_position):
-				present = true
-				break
-		derelict.rescue_tick(delta, present)
+			if not derelict.in_board_range(craft.global_position):
+				continue
+			present = true
+			soldiers += maxi(int(craft.crew_count), 1)
+		derelict.board_tick(delta, present, soldiers)
 
 
-func _spawn_strike_body(craft_id: String, world_pos: Vector2, world_rot: float) -> CharacterBody2D:
+func _spawn_strike_body(
+	craft_id: String,
+	world_pos: Vector2,
+	world_rot: float,
+	uid: String = "",
+	callsign: String = "",
+	crew: int = 1
+) -> CharacterBody2D:
 	var craft: CharacterBody2D = STRIKE_SCENE.instantiate()
-	craft.setup(craft_id)
+	craft.setup(craft_id, uid, callsign, crew)
 	craft.add_to_group("strike_craft")
 	craft.global_position = world_pos
 	craft.rotation = world_rot
@@ -380,10 +514,10 @@ func _apply_auto_order(craft: CharacterBody2D) -> void:
 			auto_target = _asteroid
 		if auto_target != null:
 			craft.start_mining(auto_target, _ship)
-	elif craft_id == "rescue" and craft.has_method("start_rescue"):
+	elif craft.has_method("is_boarding") and craft.is_boarding() and craft.has_method("start_board"):
 		for derelict in _derelicts:
-			if is_instance_valid(derelict) and derelict.has_method("has_survivors") and derelict.has_survivors():
-				craft.start_rescue(derelict)
+			if is_instance_valid(derelict) and derelict.has_method("needs_boarding") and derelict.needs_boarding():
+				craft.start_board(derelict)
 				break
 
 
@@ -395,7 +529,10 @@ func _park_live_strike_craft() -> void:
 		if craft.has_method("flush_cargo_to_carrier"):
 			craft.flush_cargo_to_carrier()
 		entries.append({
+			"uid": str(craft.instance_uid),
 			"craft_id": str(craft.craft_id),
+			"callsign": str(craft.callsign),
+			"crew": maxi(int(craft.crew_count), 1),
 			"x": craft.global_position.x,
 			"y": craft.global_position.y,
 			"rotation": craft.rotation,
@@ -416,7 +553,10 @@ func _respawn_parked_craft() -> void:
 		var craft := _spawn_strike_body(
 			craft_id,
 			Vector2(float(entry.get("x", 0.0)), float(entry.get("y", 0.0))),
-			float(entry.get("rotation", 0.0))
+			float(entry.get("rotation", 0.0)),
+			str(entry.get("uid", "")),
+			str(entry.get("callsign", "")),
+			maxi(int(entry.get("crew", 1)), 1)
 		)
 		if bool(entry.get("auto_order", false)):
 			_apply_auto_order(craft)
@@ -458,14 +598,19 @@ func _recall_craft(craft: CharacterBody2D) -> void:
 		craft.flush_cargo_to_carrier()
 	_strike_craft.erase(craft)
 	_selected_craft.erase(craft)
-	FleetData.recall_craft(craft_id)
+	FleetData.recall_craft(
+		craft_id,
+		str(craft.instance_uid),
+		str(craft.callsign),
+		maxi(int(craft.crew_count), 1)
+	)
 	craft.queue_free()
 
 
 func _on_strike_destroyed(craft: CharacterBody2D) -> void:
 	_strike_craft.erase(craft)
 	_selected_craft.erase(craft)
-	FleetData.lose_deployed_craft(str(craft.craft_id))
+	FleetData.lose_deployed_craft(str(craft.craft_id), maxi(int(craft.crew_count), 1))
 
 
 func _clear_craft_selection() -> void:
@@ -535,13 +680,19 @@ func _refresh_status() -> void:
 		hangar,
 		docks,
 	]
-	_fleet_label.text = "Crew %d free · Pilots %d · Ore %d/%d · Res %d · Survivors %d" % [
+	var mid := MissionData.current_mission_id
+	var known := MissionData.count_known_survivors_on_mission(mid)
+	var unexplored := MissionData.count_unexplored_derelicts(mid)
+	var survivor_bit := "Known %d" % known
+	if unexplored > 0:
+		survivor_bit = "Unknown · %d wrecks" % unexplored if known <= 0 else "Known %d · %d unexplored" % [known, unexplored]
+	_fleet_label.text = "Crew %d free · Pilots %d · Ore %d/%d · Res %d · %s" % [
 		CrewData.get_unassigned(),
 		CrewData.get_craft_pilots(),
 		int(ShipData.get_ore()),
 		int(ShipData.get_ore_capacity()),
 		int(ShipData.get_resources()),
-		MissionData.count_survivors_on_mission(MissionData.current_mission_id),
+		survivor_bit,
 	]
 	_fleet_panel_body.text = "\n".join([
 		"Deployed %d / %d dock slots" % [FleetData.deployed_bodies, ShipData.get_dock_slots()],
@@ -557,6 +708,7 @@ func _refresh_status() -> void:
 
 func _refresh_selection_panel() -> void:
 	_prune_selected_craft()
+	_refresh_command_buttons()
 	if _ship.is_selected:
 		_selection_title.text = "Carrier"
 		_selection_body.text = "\n".join([
@@ -577,6 +729,7 @@ func _refresh_selection_panel() -> void:
 		var craft_id := str(craft.craft_id)
 		var def := FleetData.get_strike_def(craft_id)
 		var lines: PackedStringArray = [
+			"Unit: %s" % str(craft.callsign),
 			"Class: %s" % str(def.get("name", craft_id)),
 			"Role: %s" % str(def.get("role", "craft")),
 			"Hull %d / %d" % [int(craft.hp), int(craft.max_hp)],
@@ -594,16 +747,16 @@ func _refresh_selection_panel() -> void:
 				float(def.get("mine_rate", 0.0)),
 				float(def.get("unload_rate", 0.0)),
 			])
-		elif craft.has_method("is_rescue") and craft.is_rescue():
-			lines.append("Extracts survivors from derelicts.")
-			lines.append("RMB a derelict with survivors to begin rescue.")
+		elif craft.has_method("is_boarding") and craft.is_boarding():
+			lines.append("Boarding team · crew %d" % maxi(int(craft.crew_count), 1))
+			lines.append("RMB a derelict to explore, clear threats, recover survivors.")
 		elif float(def.get("damage", 0.0)) > 0.0:
 			lines.append("Damage %.0f · Range %.0f" % [
 				float(def.get("damage", 0.0)),
 				float(def.get("range", 0.0)),
 			])
 		lines.append("Position %d, %d" % [int(craft.global_position.x), int(craft.global_position.y)])
-		_selection_title.text = str(def.get("name", craft_id))
+		_selection_title.text = str(craft.callsign) if str(craft.callsign) != "" else str(def.get("name", craft_id))
 		_selection_body.text = "\n".join(lines)
 		return
 
@@ -632,7 +785,30 @@ func _refresh_selection_panel() -> void:
 		return
 
 	_selection_title.text = "Nothing selected"
-	_selection_body.text = "Click the carrier or a strike craft on the map.\nRMB: move, mine, or Rescue survivors."
+	_selection_body.text = "Click the carrier or a strike craft on the map.\nRMB: move, mine, or board derelicts with a shuttle."
+
+
+func _refresh_command_buttons() -> void:
+	var has_craft := not _selected_craft.is_empty()
+	var has_carrier := _ship.is_selected
+	var has_miner := false
+	var has_board := false
+	var has_combat := false
+	for craft in _selected_craft:
+		if not is_instance_valid(craft):
+			continue
+		if craft.has_method("is_miner") and craft.is_miner():
+			has_miner = true
+		if craft.has_method("is_boarding") and craft.is_boarding():
+			has_board = true
+		if float(FleetData.get_strike_def(str(craft.craft_id)).get("damage", 0.0)) > 0.0:
+			has_combat = true
+	_cmd_stop.disabled = not has_craft and not has_carrier
+	_cmd_return.disabled = not has_craft
+	_cmd_mine.disabled = not has_miner
+	_cmd_rescue.disabled = not has_board
+	_cmd_attack.disabled = not has_combat
+	_cmd_recall.disabled = not has_craft
 
 
 func _prune_selected_craft() -> void:
