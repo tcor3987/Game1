@@ -16,9 +16,9 @@ const FUNCTION_INFO := {
 		"label": "Sensors",
 		"summary": "Scanning range and map camera zoom.",
 	},
-	"power": {
-		"label": "Power",
-		"summary": "Feeds other compartments. Without crewed power, systems run weak.",
+	"reactor": {
+		"label": "Reactor",
+		"summary": "Feeds other compartments. Without a crewed reactor, systems run weak.",
 	},
 	"cargo": {
 		"label": "Cargo",
@@ -26,7 +26,7 @@ const FUNCTION_INFO := {
 	},
 	"refinery": {
 		"label": "Refinery",
-		"summary": "Smelts mined ore into usable resources. Must be built and crewed.",
+		"summary": "Smelts mined ore into usable resources when crewed.",
 	},
 	"crew_quarters": {
 		"label": "Crew Quarters",
@@ -46,7 +46,7 @@ const FUNCTION_INFO := {
 	},
 	"hangar": {
 		"label": "Hangar",
-		"summary": "Builds and stores strike craft. More hangars mean a larger air wing.",
+		"summary": "Builds and stores strike craft.",
 	},
 	"docking": {
 		"label": "Docking Bay",
@@ -61,141 +61,131 @@ const FUNCTION_INFO := {
 const PRODUCE_CAPACITY := 120.0
 const MEALS_CAPACITY := 120.0
 
+## Maps old tiered / power ids onto the flat layout for save migration.
+const LEGACY_COMPARTMENT_IDS := {
+	"drive_i": "drive",
+	"drive_ii": "drive",
+	"hull_i": "hull",
+	"hull_ii": "hull",
+	"sensor_i": "sensor",
+	"power_i": "reactor",
+	"power": "reactor",
+	"cargo_i": "cargo",
+	"refinery_i": "refinery",
+	"crew_quarters_i": "crew_quarters",
+	"jump_drive_i": "jump_drive",
+	"greenhouse_i": "greenhouse",
+	"kitchen_i": "kitchen",
+	"mess_hall_i": "mess_hall",
+	"hangar_i": "hangar",
+	"hangar_ii": "hangar",
+	"docking_i": "docking",
+	"docking_ii": "docking",
+}
+
 const COMPARTMENT_DEFS := {
-	"drive_i": {
-		"name": "Drive Compartment I",
+	"drive": {
+		"name": "Drive",
 		"function": "propulsion",
-		"description": "Basic thruster module for the carrier.",
-		"speed": 60.0,
-		"turn_rate": 0.75,
+		"description": "Main thruster bank for the carrier.",
+		"speed": 155.0,
+		"turn_rate": 1.8,
 	},
-	"drive_ii": {
-		"name": "Drive Compartment II",
-		"function": "propulsion",
-		"description": "High-output drive module for a heavier hull.",
-		"speed": 95.0,
-		"turn_rate": 1.05,
-	},
-	"hull_i": {
-		"name": "Integrity Compartment I",
+	"hull": {
+		"name": "Hull Integrity",
 		"function": "integrity",
-		"description": "Reinforced bulkhead module.",
-		"max_hp": 50.0,
+		"description": "Reinforced bulkheads and armor magazine.",
+		"max_hp": 140.0,
 	},
-	"hull_ii": {
-		"name": "Integrity Compartment II",
-		"function": "integrity",
-		"description": "Composite armor magazine module.",
-		"max_hp": 90.0,
-	},
-	"sensor_i": {
-		"name": "Sensor Compartment I",
+	"sensor": {
+		"name": "Sensors",
 		"function": "sensors",
-		"description": "Scanner array module.",
+		"description": "Scanner array for map awareness.",
 		"zoom_bonus": 0.2,
 	},
-	"power_i": {
-		"name": "Power Compartment I",
-		"function": "power",
-		"description": "Reactor feed module.",
+	"reactor": {
+		"name": "Reactor",
+		"function": "reactor",
+		"description": "Primary power plant. Keeps ship systems at full output when crewed.",
 		"power_factor": 1.0,
 	},
-	"cargo_i": {
-		"name": "Cargo Compartment I",
+	"cargo": {
+		"name": "Cargo",
 		"function": "cargo",
-		"description": "Pressurized hold module.",
+		"description": "Pressurized hold for ore and mission cargo.",
 		"cargo_capacity": 20.0,
 	},
-	"refinery_i": {
-		"name": "Refinery Compartment I",
+	"refinery": {
+		"name": "Refinery",
 		"function": "refinery",
 		"description": "Ore smelter. Converts raw ore into ship resources when crewed.",
 		"refine_rate": 2.0,
 	},
-	"crew_quarters_i": {
-		"name": "Crew Quarters I",
+	"crew_quarters": {
+		"name": "Crew Quarters",
 		"function": "crew_quarters",
-		"description": "Crew berths (bunks) and lockers for rescued and assigned crew. Reduces mess demand when crewed.",
+		"description": "Crew berths and lockers. Reduces mess demand when crewed.",
 		"meal_relief": 0.15,
 	},
-	"jump_drive_i": {
-		"name": "Jump Drive I",
+	"jump_drive": {
+		"name": "Jump Drive",
 		"function": "jump_drive",
-		"description": "Spooling FTL core. Needs a full time-based charge before a sector jump. Completing a charge destroys every undocked strike craft.",
+		"description": "Spooling FTL core. Completing a charge destroys every undocked strike craft.",
 		"jump_charge_seconds": 90.0,
 	},
-	"greenhouse_i": {
-		"name": "Greenhouse I",
+	"greenhouse": {
+		"name": "Greenhouse",
 		"function": "greenhouse",
 		"description": "Hydroponic grow bay. Produces fresh crops when crewed.",
 		"grow_rate": 1.5,
 	},
-	"kitchen_i": {
-		"name": "Kitchen I",
+	"kitchen": {
+		"name": "Kitchen",
 		"function": "kitchen",
 		"description": "Galley that cooks produce into meals when crewed.",
 		"cook_rate": 1.2,
 	},
-	"mess_hall_i": {
-		"name": "Mess Hall I",
+	"mess_hall": {
+		"name": "Mess Hall",
 		"function": "mess_hall",
 		"description": "Dining deck. Serves meals to keep the crew fed and sharp.",
 		"feed_rate": 0.7,
 	},
-	"hangar_i": {
-		"name": "Hangar Deck I",
+	"hangar": {
+		"name": "Hangar",
 		"function": "hangar",
 		"description": "Flight deck for building and storing strike craft.",
-		"hangar_capacity": 4,
+		"hangar_capacity": 12,
 	},
-	"hangar_ii": {
-		"name": "Hangar Deck II",
-		"function": "hangar",
-		"description": "Expanded hangar with denser craft racking.",
-		"hangar_capacity": 8,
-	},
-	"docking_i": {
-		"name": "Docking Bay I",
+	"docking": {
+		"name": "Docking Bay",
 		"function": "docking",
 		"description": "Launch tubes and recovery clamps for strike craft.",
-		"dock_slots": 2,
-	},
-	"docking_ii": {
-		"name": "Docking Bay II",
-		"function": "docking",
-		"description": "Wide bay doors for a larger deployed wing.",
-		"dock_slots": 4,
+		"dock_slots": 6,
 	},
 }
 
-const BUILDABLE_COMPARTMENTS := [
-	"drive_i",
-	"drive_ii",
-	"hull_i",
-	"hull_ii",
-	"sensor_i",
-	"power_i",
-	"cargo_i",
-	"refinery_i",
-	"crew_quarters_i",
-	"greenhouse_i",
-	"kitchen_i",
-	"mess_hall_i",
-	"jump_drive_i",
-	"hangar_i",
-	"hangar_ii",
-	"docking_i",
-	"docking_ii",
+## Fixed carrier layout — compartments are not player-built.
+const CARRIER_COMPARTMENTS: Array[String] = [
+	"drive",
+	"hull",
+	"sensor",
+	"reactor",
+	"cargo",
+	"refinery",
+	"crew_quarters",
+	"greenhouse",
+	"kitchen",
+	"mess_hall",
+	"jump_drive",
+	"hangar",
+	"docking",
 ]
 
-var installed: Array[String] = [
-	"drive_i",
-	"power_i",
-	"hull_i",
-	"sensor_i",
-	"hangar_i",
-	"docking_i",
-]
+## Kept as an alias so older UI references keep working.
+const BUILDABLE_COMPARTMENTS: Array[String] = CARRIER_COMPARTMENTS
+
+var installed: Array[String] = []
 
 var map_position: Vector2 = Vector2(700, 420)
 var map_rotation: float = 0.0
@@ -216,20 +206,18 @@ var _ui_meals_bucket: int = -1
 var _crew_fed: bool = false
 
 
+func _ready() -> void:
+	if installed.is_empty():
+		ensure_full_carrier()
+
+
 func _process(delta: float) -> void:
 	_refine_ore(delta)
 	_run_life_support(delta)
 
 
 func reset_for_new_game() -> void:
-	installed = [
-		"drive_i",
-		"power_i",
-		"hull_i",
-		"sensor_i",
-		"hangar_i",
-		"docking_i",
-	]
+	ensure_full_carrier()
 	map_position = SectorData.SAFE_ZONE_CENTER
 	map_rotation = 0.0
 	selected_on_map = true
@@ -258,33 +246,22 @@ func get_function_label(function_id: String) -> String:
 	return str(get_function_info(function_id).get("label", function_id.capitalize()))
 
 
-func build_compartment(compartment_id: String) -> bool:
-	var def := get_compartment_def(compartment_id)
-	if def.is_empty():
-		return false
-	if not BUILDABLE_COMPARTMENTS.has(compartment_id):
-		return false
-	installed.append(compartment_id)
-	CrewData.clamp_assignments()
-	loadout_changed.emit()
-	return true
+func build_compartment(_compartment_id: String) -> bool:
+	## Carrier is fully built; progression is crew assignment only.
+	return false
 
 
-func remove_compartment_at(index: int) -> bool:
-	if index < 0 or index >= installed.size():
-		return false
-	installed.remove_at(index)
-	CrewData.clamp_assignments()
-	FleetData.trim_to_capacity()
-	loadout_changed.emit()
-	return true
+func remove_compartment_at(_index: int) -> bool:
+	return false
 
 
-func remove_one(compartment_id: String) -> bool:
-	var index := installed.find(compartment_id)
-	if index < 0:
-		return false
-	return remove_compartment_at(index)
+func remove_one(_compartment_id: String) -> bool:
+	return false
+
+
+func ensure_full_carrier() -> void:
+	installed.clear()
+	installed.append_array(CARRIER_COMPARTMENTS)
 
 
 func count_installed(compartment_id: String) -> int:
@@ -471,9 +448,8 @@ func describe_compartment(compartment_id: String) -> String:
 		str(def.get("description", "")),
 		"",
 		_effect_summary(def),
-		"Installed modules: %d" % installed_count,
 		"Crew assigned: %d / %d" % [assigned, CrewData.get_max_assignable(compartment_id)],
-		"Operational modules: %d" % crewed,
+		"Status: %s" % ("online" if crewed > 0 else "uncrewed"),
 	]
 	if function_id == "hangar":
 		lines.append("Hangar capacity: %d (free %d)" % [get_hangar_capacity(), FleetData.get_hangar_free()])
@@ -481,9 +457,7 @@ func describe_compartment(compartment_id: String) -> String:
 		lines.append("Launch slots: %d (deployed %d)" % [get_dock_slots(), FleetData.deployed_bodies])
 	if function_id == "refinery":
 		var rate := get_refine_rate()
-		if installed_count <= 0:
-			lines.append("Status: not installed — build a refinery to process ore.")
-		elif crewed <= 0:
+		if crewed <= 0:
 			lines.append("Status: idle — assign crew to smelt ore into resources.")
 		elif ore <= 0.0:
 			lines.append("Status: waiting for ore (rate %.0f/s when fed)." % rate)
@@ -495,9 +469,7 @@ func describe_compartment(compartment_id: String) -> String:
 		lines.append("Crew roster: %d (grow it by rescuing survivors on jump missions)" % CrewData.total_crew)
 	if function_id == "jump_drive":
 		var charge_secs := get_jump_charge_seconds()
-		if installed_count <= 0:
-			lines.append("Status: not installed — build a Jump Drive to leave the sector.")
-		elif crewed <= 0:
+		if crewed <= 0:
 			lines.append("Status: idle — assign crew to operate the drive.")
 		elif MissionData.is_jump_charging():
 			lines.append("Status: charging %.0f%% (%.0fs left)" % [
@@ -506,7 +478,7 @@ func describe_compartment(compartment_id: String) -> String:
 			])
 			lines.append("Warning: when charge finishes, all undocked strike craft are destroyed.")
 		elif MissionData.is_jump_ready():
-			lines.append("Status: charged — jump from Operations.")
+			lines.append("Status: charged — jump from Missions.")
 		else:
 			lines.append("Status: ready to spool (%.0f second charge)." % charge_secs)
 			lines.append("Recall craft before charging unless you intend to lose them.")
@@ -558,22 +530,8 @@ func to_save_dict() -> Dictionary:
 func apply_save_dict(data: Dictionary) -> void:
 	if data.is_empty():
 		return
-	var saved_installed = data.get("installed", null)
-	if typeof(saved_installed) == TYPE_ARRAY:
-		installed.clear()
-		for item in saved_installed:
-			var compartment_id := str(item)
-			if get_compartment_def(compartment_id).is_empty():
-				continue
-			installed.append(compartment_id)
-	else:
-		_migrate_legacy_save(data)
-	# Strip removed munitions modules from older saves.
-	installed = installed.filter(func(id): return not str(id).begins_with("munitions"))
-	if not installed.has("hangar_i") and not installed.has("hangar_ii"):
-		installed.append("hangar_i")
-	if not installed.has("docking_i") and not installed.has("docking_ii"):
-		installed.append("docking_i")
+	## Loadout is fixed; ignore saved compartment lists from older builds.
+	ensure_full_carrier()
 	map_position = Vector2(float(data.get("map_x", map_position.x)), float(data.get("map_y", map_position.y)))
 	map_rotation = float(data.get("map_rotation", map_rotation))
 	ore = clampf(float(data.get("ore", 0.0)), 0.0, get_ore_capacity())
@@ -600,11 +558,11 @@ func _migrate_legacy_save(data: Dictionary) -> void:
 	var saved_equipped = data.get("equipped", null)
 	if typeof(saved_equipped) == TYPE_DICTIONARY:
 		var mapping := {
-			"engine_mk1": "drive_i",
-			"engine_mk2": "drive_ii",
-			"armor_mk1": "hull_i",
-			"armor_mk2": "hull_ii",
-			"sensor_mk1": "sensor_i",
+			"engine_mk1": "drive",
+			"engine_mk2": "drive",
+			"armor_mk1": "hull",
+			"armor_mk2": "hull",
+			"sensor_mk1": "sensor",
 		}
 		for old_id in saved_equipped.values():
 			var compartment_id := str(mapping.get(str(old_id), ""))
@@ -646,7 +604,7 @@ func _sum_crewed_stat(function_id: String, key: String) -> float:
 
 
 func _power_multiplier() -> float:
-	if has_function("power"):
+	if has_function("reactor"):
 		return 1.0
 	return 0.55
 
@@ -680,7 +638,7 @@ func _effect_summary(def: Dictionary) -> String:
 	if def.has("dock_slots"):
 		bits.append("Launch +%d deployed craft per crewed module" % int(def.dock_slots))
 	if def.has("power_factor"):
-		bits.append("Keeps systems at full power when crewed")
+		bits.append("Keeps systems at full output when the reactor is crewed")
 	if bits.is_empty():
 		return "No numeric effects."
 	return "Effects: " + ", ".join(bits)

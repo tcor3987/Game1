@@ -31,7 +31,7 @@ func _refresh() -> void:
 	if ShipData.is_refining():
 		refine_status = "smelting %.0f ore/s" % ShipData.get_refine_rate()
 	elif ShipData.get_refine_rate() <= 0.0:
-		refine_status = "build & crew a Refinery"
+		refine_status = "assign crew to Refinery"
 	elif ShipData.get_ore() <= 0.0:
 		refine_status = "waiting for ore"
 	_carrier_label.text = "\n".join([
@@ -48,14 +48,11 @@ func _refresh() -> void:
 			ShipData.get_hangar_capacity(),
 			ShipData.get_dock_slots(),
 		],
-		"Modules installed: %d" % ShipData.installed.size(),
-		"Active functions: %s" % _active_functions_text(),
+		"Crewed systems: %s" % _active_functions_text(),
 	])
-	var feed_line := "Mess: not built"
+	var feed_line := "Mess: needs crew"
 	if ShipData.get_feed_rate() > 0.0:
 		feed_line = "Mess: feeding" if ShipData.is_crew_fed() else "Mess: out of meals"
-	elif ShipData.count_installed("mess_hall_i") > 0:
-		feed_line = "Mess: needs crew"
 	var survivors_here := MissionData.count_survivors_on_mission(MissionData.current_mission_id)
 	_crew_label.text = "\n".join([
 		"Crew & life support",
@@ -66,7 +63,7 @@ func _refresh() -> void:
 		],
 		"Produce %d · Meals %d" % [int(ShipData.get_produce()), int(ShipData.get_meals())],
 		feed_line,
-		"Survivors left in sector: %d (Operations → jump → rescue on Map)" % survivors_here,
+		"Survivors left in sector: %d (Hangar → launch Rescue → Map)" % survivors_here,
 		_jump_drive_line(),
 	])
 	_fleet_label.text = "\n".join([
@@ -74,7 +71,12 @@ func _refresh() -> void:
 		"Interceptors stored: %d" % FleetData.get_stored("interceptor"),
 		"Bombers stored: %d" % FleetData.get_stored("bomber"),
 		"Miners stored: %d" % FleetData.get_stored("miner"),
-		"Deployed: %d" % FleetData.deployed_bodies,
+		"Rescue craft stored: %d" % FleetData.get_stored("rescue"),
+		"Deployed: %d · Pilots: %d · Free crew: %d" % [
+			FleetData.deployed_bodies,
+			CrewData.get_craft_pilots(),
+			CrewData.get_unassigned(),
+		],
 	])
 	_tutorial_label.text = "Tutorial\nComing soon — this overview will walk new captains through Haven Anchorage."
 
@@ -91,7 +93,7 @@ func _active_functions_text() -> String:
 
 func _jump_drive_line() -> String:
 	if not ShipData.has_function("jump_drive"):
-		return "Jump Drive: not installed"
+		return "Jump Drive: needs crew"
 	if MissionData.is_jump_ready():
 		return "Jump Drive: charged"
 	if MissionData.is_jump_charging():

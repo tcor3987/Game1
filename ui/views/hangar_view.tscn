@@ -1,15 +1,15 @@
-[gd_scene load_steps=2 format=3 uid="uid://ccompartments01"]
+[gd_scene load_steps=2 format=3 uid="uid://diwsk4qged83u"]
 
-[ext_resource type="Script" path="res://ui/views/compartments_view.gd" id="1_compartments"]
+[ext_resource type="Script" path="res://ui/views/hangar_view.gd" id="1_hangar"]
 
-[node name="CompartmentsView" type="Control"]
+[node name="HangarView" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-script = ExtResource("1_compartments")
+script = ExtResource("1_hangar")
 
 [node name="Backdrop" type="ColorRect" parent="."]
 layout_mode = 1
@@ -35,37 +35,21 @@ theme_override_constants/margin_bottom = 16
 
 [node name="VBox" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 10
 
 [node name="Title" type="Label" parent="Margin/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.95, 0.9, 1, 1)
 theme_override_font_sizes/font_size = 32
-text = "Compartments"
+text = "Hangar"
 horizontal_alignment = 1
 
-[node name="CrewLabel" type="Label" parent="Margin/VBox"]
+[node name="StatusLabel" type="Label" parent="Margin/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.85, 0.9, 1, 1)
-theme_override_font_sizes/font_size = 16
-text = "Crew"
-horizontal_alignment = 1
-
-[node name="StatsLabel" type="Label" parent="Margin/VBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(0.75, 0.85, 1, 1)
-theme_override_font_sizes/font_size = 14
-text = "Stats"
-horizontal_alignment = 1
-
-[node name="FunctionsLabel" type="Label" parent="Margin/VBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(0.7, 0.8, 0.95, 1)
-theme_override_font_sizes/font_size = 13
-text = "Active functions"
+theme_override_colors/font_color = Color(0.8, 0.88, 1, 1)
+theme_override_font_sizes/font_size = 15
+text = "Status"
 horizontal_alignment = 1
 
 [node name="Columns" type="HBoxContainer" parent="Margin/VBox"]
@@ -76,25 +60,22 @@ theme_override_constants/separation = 16
 [node name="Left" type="VBoxContainer" parent="Margin/VBox/Columns"]
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_stretch_ratio = 1.4
 theme_override_constants/separation = 8
 
-[node name="ModulesHeader" type="Label" parent="Margin/VBox/Columns/Left"]
+[node name="ListHeader" type="Label" parent="Margin/VBox/Columns/Left"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.85, 0.8, 0.95, 1)
-text = "Crew assignment"
+text = "Strike craft"
 
-[node name="ModuleScroll" type="ScrollContainer" parent="Margin/VBox/Columns/Left"]
+[node name="CraftScroll" type="ScrollContainer" parent="Margin/VBox/Columns/Left"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="ModuleGrid" type="GridContainer" parent="Margin/VBox/Columns/Left/ModuleScroll"]
+[node name="CraftList" type="VBoxContainer" parent="Margin/VBox/Columns/Left/CraftScroll"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/h_separation = 12
-theme_override_constants/v_separation = 12
-columns = 4
+theme_override_constants/separation = 8
 
 [node name="Right" type="VBoxContainer" parent="Margin/VBox/Columns"]
 layout_mode = 2
@@ -104,7 +85,7 @@ theme_override_constants/separation = 8
 [node name="DetailsHeader" type="Label" parent="Margin/VBox/Columns/Right"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.85, 0.8, 0.95, 1)
-text = "Module / Function"
+text = "Class brief"
 
 [node name="DetailsPanel" type="PanelContainer" parent="Margin/VBox/Columns/Right"]
 layout_mode = 2
@@ -126,9 +107,11 @@ theme_override_font_sizes/font_size = 16
 text = "Details"
 autowrap_mode = 3
 
-[node name="Hint" type="Label" parent="Margin/VBox"]
+[node name="HintLabel" type="Label" parent="Margin/VBox"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.75, 0.9, 1)
 theme_override_font_sizes/font_size = 14
-text = "Carrier is fully built. Assign crew to bring systems online. Grow the roster with Rescue craft on derelicts."
+text = "Build stores a craft. Launch needs one free crew as pilot."
 horizontal_alignment = 1
+autowrap_mode = 3

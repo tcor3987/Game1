@@ -4,7 +4,7 @@ const FUNCTION_COLORS := {
 	"propulsion": Color(0.35, 0.75, 1.0),
 	"integrity": Color(0.55, 0.85, 0.7),
 	"sensors": Color(0.75, 0.65, 1.0),
-	"power": Color(1.0, 0.85, 0.4),
+	"reactor": Color(1.0, 0.85, 0.4),
 	"cargo": Color(0.7, 0.75, 0.85),
 	"refinery": Color(0.9, 0.55, 0.35),
 	"crew_quarters": Color(0.65, 0.7, 0.95),
@@ -20,9 +20,9 @@ const FUNCTION_GLYPHS := {
 	"propulsion": "D",
 	"integrity": "H",
 	"sensors": "S",
-	"power": "P",
+	"reactor": "R",
 	"cargo": "C",
-	"refinery": "R",
+	"refinery": "F",
 	"crew_quarters": "Q",
 	"greenhouse": "G",
 	"kitchen": "K",
@@ -38,15 +38,15 @@ const FUNCTION_GLYPHS := {
 @onready var _functions: Label = %FunctionsLabel
 @onready var _crew_label: Label = %CrewLabel
 
-var _selected_compartment: String = "drive_i"
+var _selected_compartment: String = "drive"
 var _refresh_queued := false
 
 
 func _ready() -> void:
 	ShipData.loadout_changed.connect(_request_refresh)
 	CrewData.crew_changed.connect(_request_refresh)
-	if not ShipData.BUILDABLE_COMPARTMENTS.is_empty():
-		_selected_compartment = ShipData.BUILDABLE_COMPARTMENTS[0]
+	if not ShipData.CARRIER_COMPARTMENTS.is_empty():
+		_selected_compartment = ShipData.CARRIER_COMPARTMENTS[0]
 	_refresh_all()
 
 
@@ -72,22 +72,24 @@ func _refresh_all() -> void:
 
 func _rebuild_module_grid() -> void:
 	_clear_children(_module_grid)
-	for compartment_id in ShipData.BUILDABLE_COMPARTMENTS:
+	for compartment_id in ShipData.CARRIER_COMPARTMENTS:
 		_module_grid.add_child(_make_module_card(compartment_id))
 
 
 func _make_module_card(compartment_id: String) -> PanelContainer:
 	var def := ShipData.get_compartment_def(compartment_id)
 	var function_id := str(def.get("function", ""))
-	var module_count := ShipData.count_installed(compartment_id)
 	var crew_assigned := CrewData.get_assigned(compartment_id)
 	var crew_max := CrewData.get_max_assignable(compartment_id)
+	var crewed := CrewData.get_crewed_count(compartment_id)
 	var selected := compartment_id == _selected_compartment
 
 	var card := PanelContainer.new()
-	card.custom_minimum_size = Vector2(148, 210)
+	card.custom_minimum_size = Vector2(148, 168)
 	if selected:
 		card.modulate = Color(1.08, 1.05, 1.15, 1)
+	elif crewed <= 0:
+		card.modulate = Color(0.72, 0.74, 0.82, 1)
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 8)
@@ -135,14 +137,15 @@ func _make_module_card(compartment_id: String) -> PanelContainer:
 	name_label.add_theme_color_override("font_color", Color(0.92, 0.9, 1, 1))
 	column.add_child(name_label)
 
-	column.add_child(_make_stepper_row(
-		"Modules",
-		"x%d" % module_count,
-		module_count > 0,
-		true,
-		_on_module_minus_pressed.bind(compartment_id),
-		_on_module_plus_pressed.bind(compartment_id)
-	))
+	var status := Label.new()
+	status.text = "Online" if crewed > 0 else "Uncrewed"
+	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	status.add_theme_font_size_override("font_size", 11)
+	status.add_theme_color_override(
+		"font_color",
+		Color(0.55, 0.9, 0.65, 1) if crewed > 0 else Color(0.85, 0.55, 0.5, 1)
+	)
+	column.add_child(status)
 
 	column.add_child(_make_stepper_row(
 		"Crew",
@@ -212,16 +215,17 @@ func _clear_children(node: Node) -> void:
 
 func _refresh_details() -> void:
 	if _selected_compartment == "" or ShipData.get_compartment_def(_selected_compartment).is_empty():
-		_details.text = "Select a compartment module."
+		_details.text = "Select a compartment."
 		return
 	_details.text = ShipData.describe_compartment(_selected_compartment)
 
 
 func _refresh_stats() -> void:
-	var power_state := "online" if ShipData.has_function("power") else "underpowered"
+	var reactor_state := "online" if ShipData.has_function("reactor") else "underpowered"
 	var fed := "fed" if ShipData.is_crew_fed() else "hungry"
-	_stats.text = "Carrier · Modules %d · Speed %d · HP %d · Hangar %d · Docks %d · Produce %d · Meals %d · Ore %d · Res %d · Crew %s · Power %s" % [
-		ShipData.installed.size(),
+	_stats.text = "Carrier · Crewed %d/%d · Speed %d · HP %d · Hangar %d · Docks %d · Produce %d · Meals %d · Ore %d · Res %d · Crew %s · Reactor %s" % [
+		_count_crewed_compartments(),
+		ShipData.CARRIER_COMPARTMENTS.size(),
 		int(ShipData.get_speed()),
 		int(ShipData.get_max_hp()),
 		ShipData.get_hangar_capacity(),
@@ -231,42 +235,41 @@ func _refresh_stats() -> void:
 		int(ShipData.get_ore()),
 		int(ShipData.get_resources()),
 		fed,
-		power_state,
+		reactor_state,
 	]
 
 
 func _refresh_functions() -> void:
-	var counts := ShipData.get_function_counts()
-	if counts.is_empty():
-		_functions.text = "Active functions: none"
+	var active := ShipData.get_active_functions()
+	if active.is_empty():
+		_functions.text = "Crewed systems: none"
 		return
 	var labels: PackedStringArray = []
-	for function_id in counts.keys():
-		labels.append("%s x%d" % [ShipData.get_function_label(str(function_id)), int(counts[function_id])])
-	_functions.text = "Built functions: " + ", ".join(labels)
+	for function_id in active:
+		labels.append(ShipData.get_function_label(str(function_id)))
+	_functions.text = "Crewed systems: " + ", ".join(labels)
 
 
 func _refresh_crew() -> void:
-	_crew_label.text = "Crew %d available · %d assigned · %d total · Rescue more on Operations jumps" % [
+	_crew_label.text = "Crew %d free · %d on modules · %d piloting craft · %d total" % [
 		CrewData.get_unassigned(),
 		CrewData.get_assigned_total(),
+		CrewData.get_craft_pilots(),
 		CrewData.total_crew,
 	]
+
+
+func _count_crewed_compartments() -> int:
+	var total := 0
+	for compartment_id in ShipData.CARRIER_COMPARTMENTS:
+		if CrewData.get_crewed_count(compartment_id) > 0:
+			total += 1
+	return total
 
 
 func _on_select_pressed(compartment_id: String) -> void:
 	_selected_compartment = compartment_id
 	_request_refresh()
-
-
-func _on_module_plus_pressed(compartment_id: String) -> void:
-	_selected_compartment = compartment_id
-	ShipData.build_compartment(compartment_id)
-
-
-func _on_module_minus_pressed(compartment_id: String) -> void:
-	_selected_compartment = compartment_id
-	ShipData.remove_one(compartment_id)
 
 
 func _on_crew_plus_pressed(compartment_id: String) -> void:

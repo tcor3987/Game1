@@ -95,7 +95,7 @@ func _apply_visuals() -> void:
 	var body := $Body as Polygon2D
 	var has_integrity := ShipData.has_function("integrity")
 	var has_propulsion := ShipData.has_function("propulsion")
-	var has_power := ShipData.has_function("power")
+	var has_power := ShipData.has_function("reactor")
 	var has_hangar := ShipData.has_function("hangar")
 	body.color = Color(0.55, 0.78, 1.0) if has_integrity else Color(0.7, 0.72, 0.9)
 	$EngineGlow.visible = has_propulsion

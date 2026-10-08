@@ -4,6 +4,7 @@ signal selected_changed(is_selected: bool)
 signal destroyed(craft: CharacterBody2D)
 
 enum MinerState { IDLE, TO_TARGET, EXTRACTING, TO_CARRIER, UNLOADING }
+enum RescueState { IDLE, TO_TARGET, EXTRACTING }
 
 @export var arrive_distance: float = 10.0
 
@@ -22,6 +23,8 @@ var _miner_state: MinerState = MinerState.IDLE
 var _extract_target: Node2D = null
 var _pending_extract: Node2D = null
 var _carrier: Node2D = null
+var _rescue_state: RescueState = RescueState.IDLE
+var _rescue_target: Node2D = null
 
 
 func setup(id: String) -> void:
@@ -39,6 +42,10 @@ func is_miner() -> bool:
 	return str(FleetData.get_strike_def(craft_id).get("role", "")) == "miner"
 
 
+func is_rescue() -> bool:
+	return str(FleetData.get_strike_def(craft_id).get("role", "")) == "rescue"
+
+
 func _ready() -> void:
 	_apply_visuals()
 
@@ -46,6 +53,10 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if is_miner() and _miner_state != MinerState.IDLE:
 		_process_miner(delta)
+		return
+
+	if is_rescue() and _rescue_state != RescueState.IDLE:
+		_process_rescue(delta)
 		return
 
 	if not is_instance_valid(_attack_target):
@@ -71,18 +82,33 @@ func _physics_process(delta: float) -> void:
 func issue_move(world_position: Vector2) -> void:
 	_attack_target = null
 	_stop_mining_loop()
+	_stop_rescue_loop()
 	_target = world_position
 
 
 func issue_attack(target: Node2D) -> void:
 	_stop_mining_loop()
+	_stop_rescue_loop()
 	_attack_target = target
 	_target = null
+
+
+func start_rescue(derelict: Node2D) -> void:
+	if not is_rescue() or not is_instance_valid(derelict):
+		return
+	if not derelict.has_method("has_survivors") or not derelict.has_survivors():
+		return
+	_stop_mining_loop()
+	_attack_target = null
+	_target = null
+	_rescue_target = derelict
+	_rescue_state = RescueState.TO_TARGET
 
 
 func start_mining(extract_target: Node2D, carrier: Node2D) -> void:
 	if not is_miner() or not is_instance_valid(extract_target):
 		return
+	_stop_rescue_loop()
 	_carrier = carrier
 	_attack_target = null
 	_target = null
@@ -256,6 +282,44 @@ func _stop_mining_loop() -> void:
 	_pending_extract = null
 
 
+func _stop_rescue_loop() -> void:
+	_rescue_state = RescueState.IDLE
+	_rescue_target = null
+
+
+func _process_rescue(delta: float) -> void:
+	if not is_instance_valid(_rescue_target):
+		_stop_rescue_loop()
+		velocity = Vector2.ZERO
+		return
+	if not _rescue_target.has_method("has_survivors") or not _rescue_target.has_survivors():
+		_stop_rescue_loop()
+		velocity = Vector2.ZERO
+		return
+
+	var hold_distance := arrive_distance + 24.0
+	if _rescue_target.has_method("in_rescue_range"):
+		## Stay inside the derelict rescue bubble once close enough.
+		hold_distance = 48.0
+
+	match _rescue_state:
+		RescueState.TO_TARGET:
+			var to_target := _rescue_target.global_position - global_position
+			if to_target.length() <= hold_distance:
+				_rescue_state = RescueState.EXTRACTING
+				velocity = Vector2.ZERO
+			else:
+				_steer_toward(to_target, delta)
+		RescueState.EXTRACTING:
+			var to_hold := _rescue_target.global_position - global_position
+			if to_hold.length() > hold_distance * 1.35:
+				_rescue_state = RescueState.TO_TARGET
+			else:
+				velocity = Vector2.ZERO
+		_:
+			velocity = Vector2.ZERO
+
+
 func _combat_move(delta: float) -> void:
 	var def := FleetData.get_strike_def(craft_id)
 	var attack_range := float(def.get("range", 80.0))
@@ -293,6 +357,11 @@ func _apply_visuals() -> void:
 			body.color = Color(0.85, 0.75, 0.4)
 			body.polygon = PackedVector2Array([
 				Vector2(12, 0), Vector2(4, -10), Vector2(-14, -8), Vector2(-14, 8), Vector2(4, 10)
+			])
+		"rescue":
+			body.color = Color(0.55, 0.85, 1.0)
+			body.polygon = PackedVector2Array([
+				Vector2(13, 0), Vector2(2, -9), Vector2(-12, -6), Vector2(-8, 0), Vector2(-12, 6), Vector2(2, 9)
 			])
 		_:
 			body.color = Color(0.45, 0.95, 0.75)

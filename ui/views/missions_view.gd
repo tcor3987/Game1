@@ -51,35 +51,51 @@ func _rebuild_mission_list() -> void:
 	for child in _mission_list.get_children():
 		_mission_list.remove_child(child)
 		child.queue_free()
-	for mission_id in MissionData.get_mission_ids():
-		var def := MissionData.get_mission_def(mission_id)
-		var button := Button.new()
-		var survivors := MissionData.count_survivors_on_mission(mission_id)
-		var mark := " (here)" if mission_id == MissionData.current_mission_id else ""
-		var rescue_bit := ""
-		if survivors > 0:
-			rescue_bit = " · %d to rescue" % survivors
-		elif not def.get("derelicts", []).is_empty():
-			rescue_bit = " · cleared"
-		button.text = "%s%s%s" % [str(def.get("name", mission_id)), mark, rescue_bit]
-		button.toggle_mode = true
-		button.button_pressed = mission_id == _selected_mission
-		button.pressed.connect(_on_mission_pressed.bind(mission_id))
-		_mission_list.add_child(button)
+	for type_id in MissionData.get_type_order():
+		var mission_ids := MissionData.get_mission_ids_by_type(type_id)
+		if mission_ids.is_empty():
+			continue
+		var type_info := MissionData.get_type_info(type_id)
+		var header := Label.new()
+		header.text = str(type_info.get("label", type_id.capitalize()))
+		header.add_theme_color_override("font_color", Color(0.75, 0.82, 0.95, 1))
+		header.add_theme_font_size_override("font_size", 14)
+		_mission_list.add_child(header)
+		for mission_id in mission_ids:
+			var def := MissionData.get_mission_def(mission_id)
+			var button := Button.new()
+			var survivors := MissionData.count_survivors_on_mission(mission_id)
+			var mark := " (here)" if mission_id == MissionData.current_mission_id else ""
+			var rescue_bit := ""
+			if survivors > 0:
+				rescue_bit = " · %d to rescue" % survivors
+			elif not def.get("derelicts", []).is_empty():
+				rescue_bit = " · cleared"
+			button.text = "%s%s%s" % [str(def.get("name", mission_id)), mark, rescue_bit]
+			button.toggle_mode = true
+			button.button_pressed = mission_id == _selected_mission
+			button.pressed.connect(_on_mission_pressed.bind(mission_id))
+			_mission_list.add_child(button)
 
 
 func _refresh_details() -> void:
 	var def := MissionData.get_mission_def(_selected_mission)
 	if def.is_empty():
-		_details.text = "Select a jump destination."
+		_details.text = "Select a mission."
 		return
+	var type_id := MissionData.get_mission_type(_selected_mission)
 	var survivors := MissionData.count_survivors_on_mission(_selected_mission)
 	var lines: PackedStringArray = [
 		str(def.get("name", _selected_mission)),
+		"Type: %s" % MissionData.get_type_label(type_id),
 		"",
 		str(def.get("summary", "")),
 		"",
 	]
+	var objective := str(def.get("objective", ""))
+	if objective != "":
+		lines.append("Objective: %s" % objective)
+		lines.append("")
 	if bool(def.get("asteroid", false)):
 		lines.append("Local resources: asteroid field")
 	var derelicts: Array = def.get("derelicts", [])
@@ -91,7 +107,8 @@ func _refresh_details() -> void:
 			"Derelicts: %d · Wrecks: %d · Survivors: %d"
 			% [derelicts.size(), wreck_count, survivors]
 		)
-		lines.append("Approach wrecks to rescue crew. RMB a Miner on scrap to salvage resources.")
+		lines.append("Hangar → launch Rescue → Map → RMB derelict to extract survivors.")
+		lines.append("Hangar → launch Miner → Map → RMB scrap/asteroid to salvage.")
 	if _selected_mission == MissionData.current_mission_id:
 		lines.append("")
 		lines.append("You are currently in this sector.")
@@ -100,17 +117,19 @@ func _refresh_details() -> void:
 	if _selected_mission == MissionData.current_mission_id:
 		_jump_button.text = "Already here"
 	elif not ShipData.has_function("jump_drive"):
-		_jump_button.text = "Need Jump Drive"
+		_jump_button.text = "Crew Jump Drive"
 	elif not MissionData.is_jump_ready():
 		_jump_button.text = "Drive not charged"
 	else:
-		_jump_button.text = "Jump to sector"
+		_jump_button.text = "Jump to mission"
 
 
 func _refresh_status() -> void:
 	var current := MissionData.get_current_def()
-	_status.text = "Current sector: %s · Crew %d · Undocked craft %d" % [
+	var type_label := MissionData.get_type_label(MissionData.get_mission_type(MissionData.current_mission_id))
+	_status.text = "Current: %s (%s) · Crew %d · Undocked craft %d" % [
 		str(current.get("name", MissionData.current_mission_id)),
+		type_label,
 		CrewData.total_crew,
 		FleetData.deployed_bodies,
 	]
@@ -118,12 +137,12 @@ func _refresh_status() -> void:
 
 func _refresh_drive_status() -> void:
 	if not ShipData.has_function("jump_drive"):
-		_drive_label.text = "Jump Drive offline — build & crew Jump Drive I in Compartments."
+		_drive_label.text = "Jump Drive offline — assign crew to Jump Drive in Compartments."
 		_charge_button.disabled = true
 		_charge_button.text = "Charge Jump Drive (90s)"
 		return
 	if MissionData.is_jump_ready():
-		_drive_label.text = "Jump Drive charged. Select a destination and jump. Charge again after jumping."
+		_drive_label.text = "Jump Drive charged. Select a mission and jump. Charge again after jumping."
 		_charge_button.disabled = true
 		_charge_button.text = "Drive charged"
 		return

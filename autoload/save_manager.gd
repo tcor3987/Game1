@@ -110,6 +110,8 @@ func load_slot(slot: int) -> void:
 		FleetData.apply_save_dict(fleet_data)
 	else:
 		FleetData.reset_for_new_game()
+	## Pilots must match craft left in the field after fleet load.
+	CrewData.sync_pilots_to_deployed(FleetData.deployed_bodies)
 	var mission_data = data.get("missions", {})
 	if typeof(mission_data) == TYPE_DICTIONARY:
 		MissionData.apply_save_dict(mission_data)

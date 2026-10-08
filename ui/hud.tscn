@@ -58,6 +58,15 @@ toggle_mode = true
 button_group = SubResource("ButtonGroup_tabs")
 text = "Map"
 
+[node name="HangarButton" type="Button" parent="TopBar/Margin/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+button_group = SubResource("ButtonGroup_tabs")
+text = "Hangar"
+
 [node name="CompartmentsButton" type="Button" parent="TopBar/Margin/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 40)
@@ -67,14 +76,14 @@ toggle_mode = true
 button_group = SubResource("ButtonGroup_tabs")
 text = "Compartments"
 
-[node name="OperationsButton" type="Button" parent="TopBar/Margin/Buttons"]
+[node name="MissionsButton" type="Button" parent="TopBar/Margin/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 size_flags_horizontal = 3
 toggle_mode = true
 button_group = SubResource("ButtonGroup_tabs")
-text = "Operations"
+text = "Missions"
 
 [node name="ViewHost" type="Control" parent="."]
 unique_name_in_owner = true
@@ -102,5 +111,6 @@ text = "Esc saves and returns to menu"
 
 [connection signal="toggled" from="TopBar/Margin/Buttons/OverviewButton" to="." method="_on_overview_toggled"]
 [connection signal="toggled" from="TopBar/Margin/Buttons/MapButton" to="." method="_on_map_toggled"]
+[connection signal="toggled" from="TopBar/Margin/Buttons/HangarButton" to="." method="_on_hangar_toggled"]
 [connection signal="toggled" from="TopBar/Margin/Buttons/CompartmentsButton" to="." method="_on_compartments_toggled"]
-[connection signal="toggled" from="TopBar/Margin/Buttons/OperationsButton" to="." method="_on_operations_toggled"]
+[connection signal="toggled" from="TopBar/Margin/Buttons/MissionsButton" to="." method="_on_missions_toggled"]

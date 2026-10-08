@@ -6,11 +6,39 @@ signal jump_drive_changed
 
 const DEFAULT_JUMP_CHARGE_SECONDS := 90.0
 
-## Jump destinations. Some include derelicts with survivors you can rescue for crew.
+## Mission categories shown on the Missions board. More types can be added later.
+const MISSION_TYPES := {
+	"home": {
+		"label": "Home",
+		"summary": "Return to a safe anchorage.",
+	},
+	"sos": {
+		"label": "SOS Signal",
+		"summary": "Distress calls and derelicts with survivors to rescue.",
+	},
+	"combat": {
+		"label": "Combat Contract",
+		"summary": "Paid hostilities and security work. Hostile content coming later.",
+	},
+	"asteroid": {
+		"label": "Asteroid",
+		"summary": "Ore-rich rocks for mining runs.",
+	},
+	"anomaly": {
+		"label": "Anomaly",
+		"summary": "Strange readings and unknown contact. Content coming later.",
+	},
+}
+
+const MISSION_TYPE_ORDER := ["home", "sos", "combat", "asteroid", "anomaly"]
+
+## Jump destinations keyed by mission id.
 const MISSION_DEFS := {
 	"haven": {
 		"name": "Haven Anchorage",
+		"type": "home",
 		"summary": "Peaceful home sector. Mine the local asteroid, salvage the anchorage wreck, and outfit the carrier.",
+		"objective": "Rest, refine, and prepare for the next contract.",
 		"spawn": Vector2(700, 420),
 		"safe_zone": true,
 		"safe_zone_name": "Haven Anchorage",
@@ -30,7 +58,9 @@ const MISSION_DEFS := {
 	},
 	"scrap_drift": {
 		"name": "Scrap Drift",
+		"type": "sos",
 		"summary": "A junk field of dead hulls. Survivors are still aboard — jump in and pull them out.",
+		"objective": "Rescue survivors from derelicts. Salvage scrap with miners.",
 		"spawn": Vector2(640, 720),
 		"safe_zone": true,
 		"safe_zone_name": "Scrap Drift",
@@ -44,7 +74,9 @@ const MISSION_DEFS := {
 	},
 	"silent_wake": {
 		"name": "Silent Wake",
+		"type": "sos",
 		"summary": "A cold convoy wreck. Life signs on the lead freighter.",
+		"objective": "Board the wrecks and bring survivors aboard.",
 		"spawn": Vector2(520, 480),
 		"safe_zone": true,
 		"safe_zone_name": "Silent Wake",
@@ -56,9 +88,56 @@ const MISSION_DEFS := {
 			{"id": "wake_escort", "pos": Vector2(1500, 860), "survivors": 1, "scrap": 10.0, "craft_type": "interceptor"},
 		],
 	},
+	"iron_shoals": {
+		"name": "Iron Shoals",
+		"type": "asteroid",
+		"summary": "A dense asteroid shoal rich in raw ore.",
+		"objective": "Mine the field and refine ore back on the carrier.",
+		"spawn": Vector2(600, 700),
+		"safe_zone": true,
+		"safe_zone_name": "Iron Shoals",
+		"safe_zone_center": Vector2(1100, 800),
+		"safe_zone_radius": 500.0,
+		"asteroid": true,
+		"asteroid_pos": Vector2(1200, 780),
+		"derelicts": [],
+	},
+	"red_contract": {
+		"name": "Red Contract",
+		"type": "combat",
+		"summary": "A security firm wants hulls burned in this grid. Hostiles not deployed yet.",
+		"objective": "Combat encounters coming later. For now, scout the sector.",
+		"spawn": Vector2(700, 600),
+		"safe_zone": true,
+		"safe_zone_name": "Red Contract",
+		"safe_zone_center": Vector2(1100, 700),
+		"safe_zone_radius": 420.0,
+		"asteroid": false,
+		"derelicts": [],
+	},
+	"ghost_echo": {
+		"name": "Ghost Echo",
+		"type": "anomaly",
+		"summary": "Sensors catch a repeating signal with no known source.",
+		"objective": "Anomaly investigation coming later. Approach and observe for now.",
+		"spawn": Vector2(640, 640),
+		"safe_zone": true,
+		"safe_zone_name": "Ghost Echo",
+		"safe_zone_center": Vector2(1100, 720),
+		"safe_zone_radius": 460.0,
+		"asteroid": false,
+		"derelicts": [],
+	},
 }
 
-const MISSION_ORDER := ["haven", "scrap_drift", "silent_wake"]
+const MISSION_ORDER := [
+	"haven",
+	"scrap_drift",
+	"silent_wake",
+	"iron_shoals",
+	"red_contract",
+	"ghost_echo",
+]
 
 var current_mission_id: String = "haven"
 ## mission_id -> { derelict_id -> survivors_remaining }
@@ -118,6 +197,33 @@ func get_mission_ids() -> Array[String]:
 	var ids: Array[String] = []
 	for mission_id in MISSION_ORDER:
 		ids.append(mission_id)
+	return ids
+
+
+func get_mission_type(mission_id: String) -> String:
+	return str(get_mission_def(mission_id).get("type", ""))
+
+
+func get_type_info(type_id: String) -> Dictionary:
+	return MISSION_TYPES.get(type_id, {})
+
+
+func get_type_label(type_id: String) -> String:
+	return str(get_type_info(type_id).get("label", type_id.capitalize()))
+
+
+func get_mission_ids_by_type(type_id: String) -> Array[String]:
+	var ids: Array[String] = []
+	for mission_id in MISSION_ORDER:
+		if get_mission_type(mission_id) == type_id:
+			ids.append(mission_id)
+	return ids
+
+
+func get_type_order() -> Array[String]:
+	var ids: Array[String] = []
+	for type_id in MISSION_TYPE_ORDER:
+		ids.append(type_id)
 	return ids
 
 

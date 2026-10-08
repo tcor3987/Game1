@@ -29,6 +29,7 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = 168.0
 offset_top = 56.0
 offset_right = -168.0
 offset_bottom = -8.0
@@ -113,6 +114,7 @@ position = Vector2(700, 420)
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
+offset_left = 168.0
 offset_right = -168.0
 offset_bottom = 52.0
 grow_horizontal = 2
@@ -138,6 +140,59 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.75, 0.85, 1, 1)
 theme_override_font_sizes/font_size = 13
 text = "Fleet"
+
+[node name="SelectionBar" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_top = 56.0
+offset_right = 168.0
+grow_horizontal = 0
+grow_vertical = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 12
+
+[node name="Panel" type="PanelContainer" parent="SelectionBar"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Margin" type="MarginContainer" parent="SelectionBar/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 10
+
+[node name="VBox" type="VBoxContainer" parent="SelectionBar/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SelectionHeader" type="Label" parent="SelectionBar/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.88, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "Selection"
+horizontal_alignment = 1
+
+[node name="SelectionTitle" type="Label" parent="SelectionBar/Panel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.92, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "Nothing selected"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="SelectionBody" type="Label" parent="SelectionBar/Panel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0.78, 0.84, 0.98, 1)
+theme_override_font_sizes/font_size = 13
+text = "Click the carrier or a strike craft on the map."
+autowrap_mode = 3
 
 [node name="SideBar" type="MarginContainer" parent="."]
 layout_mode = 1
@@ -173,72 +228,31 @@ theme_override_constants/separation = 8
 layout_mode = 2
 theme_override_colors/font_color = Color(0.85, 0.88, 1, 1)
 theme_override_font_sizes/font_size = 14
-text = "Fleet"
+text = "Orders"
 horizontal_alignment = 1
 
-[node name="Actions" type="VBoxContainer" parent="SideBar/Panel/Margin/VBox"]
-layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="BuildInterceptorButton" type="Button" parent="SideBar/Panel/Margin/VBox/Actions"]
+[node name="FleetPanelBody" type="Label" parent="SideBar/Panel/Margin/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 32)
 layout_mode = 2
-text = "Build Int"
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0.78, 0.84, 0.98, 1)
+theme_override_font_sizes/font_size = 13
+text = "Build and launch craft from the Hangar tab."
+autowrap_mode = 3
 
-[node name="BuildBomberButton" type="Button" parent="SideBar/Panel/Margin/VBox/Actions"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 32)
-layout_mode = 2
-text = "Build Bomber"
-
-[node name="BuildMinerButton" type="Button" parent="SideBar/Panel/Margin/VBox/Actions"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 32)
-layout_mode = 2
-text = "Build Miner"
-
-[node name="LaunchInterceptorButton" type="Button" parent="SideBar/Panel/Margin/VBox/Actions"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 32)
-layout_mode = 2
-text = "Launch Int"
-
-[node name="LaunchBomberButton" type="Button" parent="SideBar/Panel/Margin/VBox/Actions"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 32)
-layout_mode = 2
-text = "Launch Bomber"
-
-[node name="LaunchMinerButton" type="Button" parent="SideBar/Panel/Margin/VBox/Actions"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 32)
-layout_mode = 2
-text = "Launch Miner"
-
-[node name="RecallButton" type="Button" parent="SideBar/Panel/Margin/VBox/Actions"]
+[node name="RecallButton" type="Button" parent="SideBar/Panel/Margin/VBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 32)
 layout_mode = 2
 text = "Recall"
-
-[node name="Spacer" type="Control" parent="SideBar/Panel/Margin/VBox"]
-layout_mode = 2
-size_flags_vertical = 3
 
 [node name="HintLabel" type="Label" parent="SideBar/Panel/Margin/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.75, 0.8, 0.95, 1)
 theme_override_font_sizes/font_size = 12
-text = "Miners auto-cycle: asteroid -> mine -> carrier unload. RMB asteroid to assign."
+text = "Hangar builds/launches. RMB Rescue on survivors; Miner on scrap/ore."
 horizontal_alignment = 1
 autowrap_mode = 3
 
-[connection signal="pressed" from="SideBar/Panel/Margin/VBox/Actions/BuildInterceptorButton" to="." method="_on_build_interceptor_pressed"]
-[connection signal="pressed" from="SideBar/Panel/Margin/VBox/Actions/BuildBomberButton" to="." method="_on_build_bomber_pressed"]
-[connection signal="pressed" from="SideBar/Panel/Margin/VBox/Actions/BuildMinerButton" to="." method="_on_build_miner_pressed"]
-[connection signal="pressed" from="SideBar/Panel/Margin/VBox/Actions/LaunchInterceptorButton" to="." method="_on_launch_interceptor_pressed"]
-[connection signal="pressed" from="SideBar/Panel/Margin/VBox/Actions/LaunchBomberButton" to="." method="_on_launch_bomber_pressed"]
-[connection signal="pressed" from="SideBar/Panel/Margin/VBox/Actions/LaunchMinerButton" to="." method="_on_launch_miner_pressed"]
-[connection signal="pressed" from="SideBar/Panel/Margin/VBox/Actions/RecallButton" to="." method="_on_recall_pressed"]
+[connection signal="pressed" from="SideBar/Panel/Margin/VBox/RecallButton" to="." method="_on_recall_pressed"]

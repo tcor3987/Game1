@@ -6,27 +6,30 @@ signal crew_changed
 const CREW_PER_COMPARTMENT := 1
 
 var total_crew: int = 8
-## compartment_id -> assigned crew count
+## Starting assignments cover core ops; remaining systems wait for rescued crew.
 var assignments: Dictionary = {
-	"drive_i": 1,
-	"power_i": 1,
-	"hull_i": 1,
-	"sensor_i": 1,
-	"hangar_i": 1,
-	"docking_i": 1,
+	"drive": 1,
+	"reactor": 1,
+	"hangar": 1,
+	"docking": 1,
+	"refinery": 1,
+	"jump_drive": 1,
 }
+## Crew currently piloting launched strike craft (1 per craft).
+var craft_pilots: int = 0
 
 
 func reset_for_new_game() -> void:
 	total_crew = 8
 	assignments = {
-		"drive_i": 1,
-		"power_i": 1,
-		"hull_i": 1,
-		"sensor_i": 1,
-		"hangar_i": 1,
-		"docking_i": 1,
+		"drive": 1,
+		"reactor": 1,
+		"hangar": 1,
+		"docking": 1,
+		"refinery": 1,
+		"jump_drive": 1,
 	}
+	craft_pilots = 0
 	_changed()
 
 
@@ -46,8 +49,53 @@ func get_max_assignable(compartment_id: String) -> int:
 	return ShipData.count_installed(compartment_id) * CREW_PER_COMPARTMENT
 
 
+func get_craft_pilots() -> int:
+	return craft_pilots
+
+
 func get_unassigned() -> int:
-	return maxi(total_crew - get_assigned_total(), 0)
+	return maxi(total_crew - get_assigned_total() - craft_pilots, 0)
+
+
+func has_free_pilot() -> bool:
+	return get_unassigned() > 0
+
+
+func assign_pilot() -> bool:
+	if not has_free_pilot():
+		return false
+	craft_pilots += 1
+	_changed()
+	return true
+
+
+func release_pilot() -> void:
+	if craft_pilots <= 0:
+		return
+	craft_pilots -= 1
+	_changed()
+
+
+## Pilot dies with the craft.
+func lose_pilot() -> void:
+	if craft_pilots > 0:
+		craft_pilots -= 1
+	if total_crew > 0:
+		total_crew -= 1
+	clamp_assignments()
+	_changed()
+
+
+func sync_pilots_to_deployed(deployed_count: int) -> void:
+	var next := maxi(deployed_count, 0)
+	if craft_pilots == next:
+		return
+	craft_pilots = next
+	## Keep pilots from exceeding available bodies after compartment assignments.
+	var max_pilots := maxi(total_crew - get_assigned_total(), 0)
+	if craft_pilots > max_pilots:
+		craft_pilots = max_pilots
+	_changed()
 
 
 func get_assigned_total() -> int:
@@ -125,6 +173,7 @@ func to_save_dict() -> Dictionary:
 	return {
 		"total_crew": total_crew,
 		"assignments": assignments.duplicate(true),
+		"craft_pilots": craft_pilots,
 	}
 
 
@@ -136,18 +185,30 @@ func apply_save_dict(data: Dictionary) -> void:
 		reset_for_new_game()
 		return
 	total_crew = maxi(int(data.get("total_crew", 8)), 0)
+	craft_pilots = maxi(int(data.get("craft_pilots", 0)), 0)
 	assignments.clear()
 	var saved = data.get("assignments", {})
 	if typeof(saved) == TYPE_DICTIONARY:
 		for key in saved.keys():
-			var compartment_id := str(key)
-			if str(compartment_id).begins_with("munitions"):
+			var raw_id := str(key)
+			if raw_id.begins_with("munitions"):
+				continue
+			var compartment_id := _migrate_compartment_id(raw_id)
+			if ShipData.get_compartment_def(compartment_id).is_empty():
 				continue
 			var amount := maxi(int(saved[key]), 0)
-			if amount > 0:
-				assignments[compartment_id] = amount
+			if amount <= 0:
+				continue
+			## Tiered saves may map two modules onto one; keep the higher assignment.
+			assignments[compartment_id] = maxi(get_assigned(compartment_id), amount)
 	clamp_assignments()
 	crew_changed.emit()
+
+
+func _migrate_compartment_id(compartment_id: String) -> String:
+	if ShipData.get_compartment_def(compartment_id).is_empty():
+		return str(ShipData.LEGACY_COMPARTMENT_IDS.get(compartment_id, compartment_id))
+	return compartment_id
 
 
 func _trim_assignments(amount: int) -> void:

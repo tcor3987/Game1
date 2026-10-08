@@ -42,6 +42,16 @@ const STRIKE_DEFS := {
 		"mine_rate": 4.0,
 		"unload_rate": 8.0,
 	},
+	"rescue": {
+		"name": "Rescue",
+		"description": "Search-and-rescue craft. Required to extract survivors from derelicts.",
+		"role": "rescue",
+		"hangar_cost": 1,
+		"resource_cost": 30.0,
+		"speed": 150.0,
+		"turn_rate": 2.0,
+		"max_hp": 50.0,
+	},
 	## Used when hostile hulls are destroyed and become wrecks.
 	"enemy": {
 		"name": "Hostile Hull",
@@ -56,6 +66,7 @@ var stored: Dictionary = {
 	"interceptor": 0,
 	"bomber": 0,
 	"miner": 0,
+	"rescue": 0,
 }
 
 ## Hangar slot weight currently out on deployment.
@@ -73,6 +84,8 @@ func reset_for_new_game() -> void:
 		"interceptor": 0,
 		"bomber": 0,
 		"miner": 0,
+		## One rescue craft so Haven survivors are reachable immediately.
+		"rescue": 1,
 	}
 	deployed_slots = 0
 	deployed_bodies = 0
@@ -139,18 +152,47 @@ func build_craft(craft_id: String) -> bool:
 func can_launch(craft_id: String) -> bool:
 	if get_stored(craft_id) <= 0:
 		return false
+	if get_strike_def(craft_id).is_empty() or craft_id == "enemy":
+		return false
 	if not ShipData.has_function("docking"):
 		return false
-	return deployed_bodies < ShipData.get_dock_slots()
+	if deployed_bodies >= ShipData.get_dock_slots():
+		return false
+	return CrewData.has_free_pilot()
 
 
-func take_for_launch(craft_id: String) -> bool:
+func get_launch_block_reason(craft_id: String) -> String:
+	if get_stored(craft_id) <= 0:
+		return "None stored"
+	if not ShipData.has_function("docking"):
+		return "Crew Docking"
+	if deployed_bodies >= ShipData.get_dock_slots():
+		return "Dock full"
+	if not CrewData.has_free_pilot():
+		return "Need free crew"
+	return ""
+
+
+## Pulls a stored craft into the field (parked until Map opens). Needs 1 free crew as pilot.
+func launch_craft(craft_id: String) -> bool:
 	if not can_launch(craft_id):
+		return false
+	if not CrewData.assign_pilot():
 		return false
 	var cost := int(get_strike_def(craft_id).get("hangar_cost", 1))
 	stored[craft_id] = get_stored(craft_id) - 1
 	deployed_bodies += 1
 	deployed_slots += cost
+	var spawn := ShipData.map_position
+	var facing := ShipData.map_rotation
+	var offset := Vector2.from_angle(facing + PI).rotated(randf_range(-0.45, 0.45)) * 56.0
+	parked_deployed.append({
+		"craft_id": craft_id,
+		"x": spawn.x + offset.x,
+		"y": spawn.y + offset.y,
+		"rotation": facing,
+		"auto_order": true,
+	})
 	_changed()
 	return true
 
@@ -160,6 +202,7 @@ func recall_craft(craft_id: String) -> void:
 	deployed_bodies = maxi(deployed_bodies - 1, 0)
 	deployed_slots = maxi(deployed_slots - cost, 0)
 	stored[craft_id] = get_stored(craft_id) + 1
+	CrewData.release_pilot()
 	_changed()
 
 
@@ -167,6 +210,7 @@ func lose_deployed_craft(craft_id: String) -> void:
 	var cost := int(get_strike_def(craft_id).get("hangar_cost", 1))
 	deployed_bodies = maxi(deployed_bodies - 1, 0)
 	deployed_slots = maxi(deployed_slots - cost, 0)
+	CrewData.lose_pilot()
 	_changed()
 
 
@@ -186,9 +230,9 @@ func has_undocked_craft() -> bool:
 
 
 ## Wipes undocked craft from the roster (not returned to hangar). Spawns wrecks for parked ships.
-## Live Map bodies are destroyed by listeners of undocked_craft_destroyed.
+## Live Map bodies are destroyed by listeners of undocked_craft_destroyed. Pilots are lost.
 func destroy_all_undocked() -> int:
-	var lost := 0
+	var lost := deployed_bodies
 	for entry in parked_deployed:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
@@ -199,11 +243,11 @@ func destroy_all_undocked() -> int:
 			Vector2(float(entry.get("x", 0.0)), float(entry.get("y", 0.0))),
 			craft_id
 		)
-		lost += 1
 	parked_deployed.clear()
-	lost += deployed_bodies
 	deployed_bodies = 0
 	deployed_slots = 0
+	for _i in lost:
+		CrewData.lose_pilot()
 	undocked_craft_destroyed.emit()
 	_changed()
 	return lost
@@ -226,12 +270,13 @@ func apply_save_dict(data: Dictionary) -> void:
 		"interceptor": 0,
 		"bomber": 0,
 		"miner": 0,
+		"rescue": 0,
 	}
 	var saved = data.get("stored", {})
 	if typeof(saved) == TYPE_DICTIONARY:
 		for key in saved.keys():
 			var craft_id := str(key)
-			if get_strike_def(craft_id).is_empty():
+			if get_strike_def(craft_id).is_empty() or craft_id == "enemy":
 				continue
 			stored[craft_id] = maxi(int(saved[key]), 0)
 	parked_deployed.clear()
@@ -259,13 +304,14 @@ func apply_save_dict(data: Dictionary) -> void:
 			slots += int(get_strike_def(str(entry.get("craft_id", ""))).get("hangar_cost", 1))
 		deployed_slots = slots
 	trim_to_capacity()
+	CrewData.sync_pilots_to_deployed(deployed_bodies)
 	fleet_changed.emit()
 
 
 func trim_to_capacity() -> void:
 	while get_hangar_used() > ShipData.get_hangar_capacity():
 		var removed := false
-		for craft_id in ["bomber", "miner", "interceptor"]:
+		for craft_id in ["bomber", "miner", "rescue", "interceptor"]:
 			if get_stored(craft_id) > 0:
 				stored[craft_id] = get_stored(craft_id) - 1
 				removed = true
