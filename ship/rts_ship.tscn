@@ -1,0 +1,37 @@
+[gd_scene load_steps=3 format=3 uid="uid://crtsShip000001"]
+
+[ext_resource type="Script" path="res://ship/rts_ship.gd" id="1_ship"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_body"]
+radius = 42.0
+
+[node name="RtsShip" type="CharacterBody2D"]
+process_mode = 3
+collision_layer = 2
+collision_mask = 1
+motion_mode = 1
+script = ExtResource("1_ship")
+
+[node name="SelectionRing" type="Polygon2D" parent="."]
+visible = false
+color = Color(0.45, 0.95, 0.7, 0.3)
+polygon = PackedVector2Array(-52, -28, 52, -28, 52, 28, -52, 28)
+
+[node name="Body" type="Polygon2D" parent="."]
+color = Color(0.55, 0.78, 1.0, 1)
+polygon = PackedVector2Array(46, 0, 20, -18, -36, -22, -44, 0, -36, 22, 20, 18)
+
+[node name="HangarDeck" type="Polygon2D" parent="."]
+color = Color(0.95, 0.8, 0.35, 0.85)
+polygon = PackedVector2Array(-8, -14, 18, -10, 18, 10, -8, 14)
+
+[node name="DockingBay" type="Polygon2D" parent="."]
+color = Color(0.55, 0.9, 0.75, 0.8)
+polygon = PackedVector2Array(-34, -10, -18, -8, -18, 8, -34, 10)
+
+[node name="EngineGlow" type="Polygon2D" parent="."]
+color = Color(0.4, 0.75, 1, 0.8)
+polygon = PackedVector2Array(-44, -8, -58, 0, -44, 8)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_body")

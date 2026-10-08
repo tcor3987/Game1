@@ -1,0 +1,244 @@
+[gd_scene load_steps=2 format=3 uid="uid://b70geyiqg3454"]
+
+[ext_resource type="Script" path="res://ui/main_menu.gd" id="1_menu"]
+
+[node name="MainMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_menu")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.08, 0.06, 0.12, 1)
+
+[node name="MenuScreen" type="CenterContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="MenuScreen"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="MenuScreen/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 48
+text = "Game Template"
+horizontal_alignment = 1
+
+[node name="Hint" type="Label" parent="MenuScreen/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.75, 0.9, 1)
+theme_override_font_sizes/font_size = 18
+text = "A basic Blazium starter"
+horizontal_alignment = 1
+
+[node name="Spacer" type="Control" parent="MenuScreen/VBox"]
+custom_minimum_size = Vector2(0, 8)
+layout_mode = 2
+
+[node name="ContinueButton" type="Button" parent="MenuScreen/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(280, 44)
+layout_mode = 2
+text = "Continue"
+
+[node name="NewGameButton" type="Button" parent="MenuScreen/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(280, 44)
+layout_mode = 2
+text = "New Game"
+
+[node name="LoadGameButton" type="Button" parent="MenuScreen/VBox"]
+custom_minimum_size = Vector2(280, 44)
+layout_mode = 2
+text = "Load Game"
+
+[node name="SettingsButton" type="Button" parent="MenuScreen/VBox"]
+custom_minimum_size = Vector2(280, 44)
+layout_mode = 2
+text = "Settings"
+
+[node name="CreditsButton" type="Button" parent="MenuScreen/VBox"]
+custom_minimum_size = Vector2(280, 44)
+layout_mode = 2
+text = "Credits"
+
+[node name="QuitButton" type="Button" parent="MenuScreen/VBox"]
+custom_minimum_size = Vector2(280, 44)
+layout_mode = 2
+text = "Quit"
+
+[node name="LoadScreen" type="CenterContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="LoadScreen"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="LoadScreen/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 36
+text = "Load Game"
+horizontal_alignment = 1
+
+[node name="SlotList" type="VBoxContainer" parent="LoadScreen/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="LoadBackButton" type="Button" parent="LoadScreen/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(280, 44)
+layout_mode = 2
+text = "Back"
+
+[node name="SettingsScreen" type="CenterContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="SettingsScreen"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="SettingsScreen/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 36
+text = "Settings"
+horizontal_alignment = 1
+
+[node name="MasterLabel" type="Label" parent="SettingsScreen/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.75, 0.9, 1)
+text = "Master Volume"
+
+[node name="MasterSlider" type="HSlider" parent="SettingsScreen/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 24)
+layout_mode = 2
+max_value = 1.0
+step = 0.01
+value = 1.0
+
+[node name="MusicLabel" type="Label" parent="SettingsScreen/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.75, 0.9, 1)
+text = "Music Volume"
+
+[node name="MusicSlider" type="HSlider" parent="SettingsScreen/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 24)
+layout_mode = 2
+max_value = 1.0
+step = 0.01
+value = 0.8
+
+[node name="SfxLabel" type="Label" parent="SettingsScreen/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.75, 0.9, 1)
+text = "SFX Volume"
+
+[node name="SfxSlider" type="HSlider" parent="SettingsScreen/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 24)
+layout_mode = 2
+max_value = 1.0
+step = 0.01
+value = 1.0
+
+[node name="FullscreenCheck" type="CheckButton" parent="SettingsScreen/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Fullscreen"
+
+[node name="SettingsBackButton" type="Button" parent="SettingsScreen/VBox"]
+custom_minimum_size = Vector2(280, 44)
+layout_mode = 2
+text = "Back"
+
+[node name="CreditsScreen" type="CenterContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="CreditsScreen"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="CreditsScreen/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 36
+text = "Credits"
+horizontal_alignment = 1
+
+[node name="Body" type="Label" parent="CreditsScreen/VBox"]
+custom_minimum_size = Vector2(420, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.8, 0.95, 1)
+theme_override_font_sizes/font_size = 18
+text = "Game Template
+
+A starter project for new Blazium games.
+
+Engine
+Blazium
+
+Template
+Replace these credits with your team."
+horizontal_alignment = 1
+
+[node name="CreditsBackButton" type="Button" parent="CreditsScreen/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(280, 44)
+layout_mode = 2
+text = "Back"
+
+[connection signal="pressed" from="MenuScreen/VBox/ContinueButton" to="." method="_on_continue_pressed"]
+[connection signal="pressed" from="MenuScreen/VBox/NewGameButton" to="." method="_on_new_game_pressed"]
+[connection signal="pressed" from="MenuScreen/VBox/LoadGameButton" to="." method="_on_load_game_pressed"]
+[connection signal="pressed" from="MenuScreen/VBox/SettingsButton" to="." method="_on_settings_pressed"]
+[connection signal="pressed" from="MenuScreen/VBox/CreditsButton" to="." method="_on_credits_pressed"]
+[connection signal="pressed" from="MenuScreen/VBox/QuitButton" to="." method="_on_quit_pressed"]
+[connection signal="pressed" from="LoadScreen/VBox/LoadBackButton" to="." method="_on_back_pressed"]
+[connection signal="value_changed" from="SettingsScreen/VBox/MasterSlider" to="." method="_on_master_changed"]
+[connection signal="value_changed" from="SettingsScreen/VBox/MusicSlider" to="." method="_on_music_changed"]
+[connection signal="value_changed" from="SettingsScreen/VBox/SfxSlider" to="." method="_on_sfx_changed"]
+[connection signal="toggled" from="SettingsScreen/VBox/FullscreenCheck" to="." method="_on_fullscreen_toggled"]
+[connection signal="pressed" from="SettingsScreen/VBox/SettingsBackButton" to="." method="_on_back_pressed"]
+[connection signal="pressed" from="CreditsScreen/VBox/CreditsBackButton" to="." method="_on_back_pressed"]

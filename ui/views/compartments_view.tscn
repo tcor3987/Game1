@@ -1,0 +1,134 @@
+[gd_scene load_steps=2 format=3 uid="uid://ccompartments01"]
+
+[ext_resource type="Script" path="res://ui/views/compartments_view.gd" id="1_compartments"]
+
+[node name="CompartmentsView" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_compartments")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+color = Color(0.05, 0.04, 0.08, 0.92)
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 32
+text = "Compartments"
+horizontal_alignment = 1
+
+[node name="CrewLabel" type="Label" parent="Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "Crew"
+horizontal_alignment = 1
+
+[node name="StatsLabel" type="Label" parent="Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.75, 0.85, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "Stats"
+horizontal_alignment = 1
+
+[node name="FunctionsLabel" type="Label" parent="Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.8, 0.95, 1)
+theme_override_font_sizes/font_size = 13
+text = "Active functions"
+horizontal_alignment = 1
+
+[node name="Columns" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 16
+
+[node name="Left" type="VBoxContainer" parent="Margin/VBox/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 1.4
+theme_override_constants/separation = 8
+
+[node name="ModulesHeader" type="Label" parent="Margin/VBox/Columns/Left"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.8, 0.95, 1)
+text = "Modules & Crew"
+
+[node name="ModuleScroll" type="ScrollContainer" parent="Margin/VBox/Columns/Left"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ModuleGrid" type="GridContainer" parent="Margin/VBox/Columns/Left/ModuleScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+columns = 4
+
+[node name="Right" type="VBoxContainer" parent="Margin/VBox/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="DetailsHeader" type="Label" parent="Margin/VBox/Columns/Right"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.8, 0.95, 1)
+text = "Module / Function"
+
+[node name="DetailsPanel" type="PanelContainer" parent="Margin/VBox/Columns/Right"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="DetailsMargin" type="MarginContainer" parent="Margin/VBox/Columns/Right/DetailsPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="DetailsLabel" type="Label" parent="Margin/VBox/Columns/Right/DetailsPanel/DetailsMargin"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0.9, 0.88, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "Details"
+autowrap_mode = 3
+
+[node name="Hint" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.75, 0.9, 1)
+theme_override_font_sizes/font_size = 14
+text = "Life support: Quarters · Greenhouse → Kitchen → Mess Hall. Grow the roster by rescuing survivors on Operations jumps."
+horizontal_alignment = 1

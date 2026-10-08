@@ -1,0 +1,6 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# Multiuser Editor access list (local credentials, do not commit).
+.multiuser_access_list.json

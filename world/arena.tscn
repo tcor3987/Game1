@@ -1,0 +1,37 @@
+[gd_scene load_steps=3 format=3 uid="uid://c8arenastarter01"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_h"]
+size = Vector2(1280, 40)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_v"]
+size = Vector2(40, 720)
+
+[node name="Arena" type="Node2D"]
+
+[node name="Floor" type="Polygon2D" parent="."]
+color = Color(0.16, 0.12, 0.22, 1)
+polygon = PackedVector2Array(0, 0, 1280, 0, 1280, 720, 0, 720)
+
+[node name="WallTop" type="StaticBody2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WallTop"]
+position = Vector2(640, 0)
+shape = SubResource("RectangleShape2D_h")
+
+[node name="WallBottom" type="StaticBody2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WallBottom"]
+position = Vector2(640, 720)
+shape = SubResource("RectangleShape2D_h")
+
+[node name="WallLeft" type="StaticBody2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WallLeft"]
+position = Vector2(0, 360)
+shape = SubResource("RectangleShape2D_v")
+
+[node name="WallRight" type="StaticBody2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WallRight"]
+position = Vector2(1280, 360)
+shape = SubResource("RectangleShape2D_v")

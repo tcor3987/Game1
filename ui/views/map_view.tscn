@@ -1,0 +1,244 @@
+[gd_scene load_steps=3 format=3 uid="uid://cmapview000001"]
+
+[ext_resource type="Script" path="res://ui/views/map_view.gd" id="1_map"]
+[ext_resource type="PackedScene" uid="uid://crtsShip000001" path="res://ship/rts_ship.tscn" id="2_ship"]
+
+[node name="MapView" type="Control"]
+process_mode = 3
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+script = ExtResource("1_map")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.03, 0.03, 0.06, 1)
+
+[node name="ViewportHost" type="SubViewportContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 56.0
+offset_right = -168.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+stretch = true
+
+[node name="MapViewport" type="SubViewport" parent="ViewportHost"]
+unique_name_in_owner = true
+process_mode = 3
+handle_input_locally = true
+size = Vector2i(1280, 520)
+render_target_update_mode = 4
+
+[node name="World" type="Node2D" parent="ViewportHost/MapViewport"]
+unique_name_in_owner = true
+
+[node name="Space" type="Polygon2D" parent="ViewportHost/MapViewport/World"]
+color = Color(0.05, 0.07, 0.14, 1)
+polygon = PackedVector2Array(0, 0, 2400, 0, 2400, 1600, 0, 1600)
+
+[node name="Grid" type="Node2D" parent="ViewportHost/MapViewport/World"]
+
+[node name="LaneA" type="Line2D" parent="ViewportHost/MapViewport/World/Grid"]
+points = PackedVector2Array(0, 400, 2400, 400)
+width = 1.0
+default_color = Color(0.25, 0.35, 0.55, 0.35)
+
+[node name="LaneB" type="Line2D" parent="ViewportHost/MapViewport/World/Grid"]
+points = PackedVector2Array(0, 800, 2400, 800)
+width = 1.0
+default_color = Color(0.25, 0.35, 0.55, 0.35)
+
+[node name="LaneC" type="Line2D" parent="ViewportHost/MapViewport/World/Grid"]
+points = PackedVector2Array(0, 1200, 2400, 1200)
+width = 1.0
+default_color = Color(0.25, 0.35, 0.55, 0.35)
+
+[node name="ColA" type="Line2D" parent="ViewportHost/MapViewport/World/Grid"]
+points = PackedVector2Array(600, 0, 600, 1600)
+width = 1.0
+default_color = Color(0.25, 0.35, 0.55, 0.25)
+
+[node name="ColB" type="Line2D" parent="ViewportHost/MapViewport/World/Grid"]
+points = PackedVector2Array(1200, 0, 1200, 1600)
+width = 1.0
+default_color = Color(0.25, 0.35, 0.55, 0.25)
+
+[node name="ColC" type="Line2D" parent="ViewportHost/MapViewport/World/Grid"]
+points = PackedVector2Array(1800, 0, 1800, 1600)
+width = 1.0
+default_color = Color(0.25, 0.35, 0.55, 0.25)
+
+[node name="Beacon" type="Polygon2D" parent="ViewportHost/MapViewport/World"]
+position = Vector2(1800, 420)
+color = Color(1, 0.85, 0.4, 0.85)
+polygon = PackedVector2Array(0, -18, 16, 12, -16, 12)
+
+[node name="Station" type="Polygon2D" parent="ViewportHost/MapViewport/World"]
+position = Vector2(420, 1180)
+color = Color(0.55, 0.85, 0.95, 0.7)
+polygon = PackedVector2Array(-30, -20, 30, -20, 30, 20, -30, 20)
+
+[node name="MoveMarker" type="Node2D" parent="ViewportHost/MapViewport/World"]
+unique_name_in_owner = true
+visible = false
+
+[node name="Ring" type="Polygon2D" parent="ViewportHost/MapViewport/World/MoveMarker"]
+color = Color(0.4, 1, 0.7, 0.45)
+polygon = PackedVector2Array(-10, -10, 10, -10, 10, 10, -10, 10)
+
+[node name="RtsShip" parent="ViewportHost/MapViewport/World" instance=ExtResource("2_ship")]
+unique_name_in_owner = true
+position = Vector2(700, 420)
+
+[node name="Camera" type="Camera2D" parent="ViewportHost/MapViewport/World"]
+unique_name_in_owner = true
+position = Vector2(700, 420)
+
+[node name="TopHud" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_right = -168.0
+offset_bottom = 52.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 16
+
+[node name="VBox" type="VBoxContainer" parent="TopHud"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="StatusLabel" type="Label" parent="TopHud/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.92, 1, 1)
+theme_override_font_sizes/font_size = 15
+text = "Selected"
+
+[node name="FleetLabel" type="Label" parent="TopHud/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.75, 0.85, 1, 1)
+theme_override_font_sizes/font_size = 13
+text = "Fleet"
+
+[node name="SideBar" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 11
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -168.0
+offset_top = 56.0
+grow_horizontal = 0
+grow_vertical = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="Panel" type="PanelContainer" parent="SideBar"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Margin" type="MarginContainer" parent="SideBar/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 10
+
+[node name="VBox" type="VBoxContainer" parent="SideBar/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ActionsHeader" type="Label" parent="SideBar/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.88, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "Fleet"
+horizontal_alignment = 1
+
+[node name="Actions" type="VBoxContainer" parent="SideBar/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="BuildInterceptorButton" type="Button" parent="SideBar/Panel/Margin/VBox/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+text = "Build Int"
+
+[node name="BuildBomberButton" type="Button" parent="SideBar/Panel/Margin/VBox/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+text = "Build Bomber"
+
+[node name="BuildMinerButton" type="Button" parent="SideBar/Panel/Margin/VBox/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+text = "Build Miner"
+
+[node name="LaunchInterceptorButton" type="Button" parent="SideBar/Panel/Margin/VBox/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+text = "Launch Int"
+
+[node name="LaunchBomberButton" type="Button" parent="SideBar/Panel/Margin/VBox/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+text = "Launch Bomber"
+
+[node name="LaunchMinerButton" type="Button" parent="SideBar/Panel/Margin/VBox/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+text = "Launch Miner"
+
+[node name="RecallButton" type="Button" parent="SideBar/Panel/Margin/VBox/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+text = "Recall"
+
+[node name="Spacer" type="Control" parent="SideBar/Panel/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="HintLabel" type="Label" parent="SideBar/Panel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.75, 0.8, 0.95, 1)
+theme_override_font_sizes/font_size = 12
+text = "Miners auto-cycle: asteroid -> mine -> carrier unload. RMB asteroid to assign."
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[connection signal="pressed" from="SideBar/Panel/Margin/VBox/Actions/BuildInterceptorButton" to="." method="_on_build_interceptor_pressed"]
+[connection signal="pressed" from="SideBar/Panel/Margin/VBox/Actions/BuildBomberButton" to="." method="_on_build_bomber_pressed"]
+[connection signal="pressed" from="SideBar/Panel/Margin/VBox/Actions/BuildMinerButton" to="." method="_on_build_miner_pressed"]
+[connection signal="pressed" from="SideBar/Panel/Margin/VBox/Actions/LaunchInterceptorButton" to="." method="_on_launch_interceptor_pressed"]
+[connection signal="pressed" from="SideBar/Panel/Margin/VBox/Actions/LaunchBomberButton" to="." method="_on_launch_bomber_pressed"]
+[connection signal="pressed" from="SideBar/Panel/Margin/VBox/Actions/LaunchMinerButton" to="." method="_on_launch_miner_pressed"]
+[connection signal="pressed" from="SideBar/Panel/Margin/VBox/Actions/RecallButton" to="." method="_on_recall_pressed"]
