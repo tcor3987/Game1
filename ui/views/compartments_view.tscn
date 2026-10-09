@@ -29,106 +29,128 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/margin_left = 24
-theme_override_constants/margin_top = 16
+theme_override_constants/margin_top = 12
 theme_override_constants/margin_right = 24
-theme_override_constants/margin_bottom = 16
+theme_override_constants/margin_bottom = 12
 
 [node name="VBox" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="Title" type="Label" parent="Margin/VBox"]
+[node name="TabBar" type="HBoxContainer" parent="Margin/VBox"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.95, 0.9, 1, 1)
-theme_override_font_sizes/font_size = 32
-text = "Compartments"
-horizontal_alignment = 1
+theme_override_constants/separation = 10
+alignment = 1
 
-[node name="CrewLabel" type="Label" parent="Margin/VBox"]
+[node name="CompartmentsTabButton" type="Button" parent="Margin/VBox/TabBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(140, 36)
+layout_mode = 2
+toggle_mode = true
+button_pressed = true
+text = "Compartments"
+
+[node name="CrewTabButton" type="Button" parent="Margin/VBox/TabBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(140, 36)
+layout_mode = 2
+toggle_mode = true
+text = "Crew"
+
+[node name="Title" type="Label" parent="Margin/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.85, 0.9, 1, 1)
-theme_override_font_sizes/font_size = 16
-text = "Crew"
+theme_override_colors/font_color = Color(0.95, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 28
+text = "Compartments"
 horizontal_alignment = 1
 
 [node name="StatsLabel" type="Label" parent="Margin/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.75, 0.85, 1, 1)
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 13
 text = "Stats"
 horizontal_alignment = 1
 
-[node name="FunctionsLabel" type="Label" parent="Margin/VBox"]
+[node name="CompartmentsPage" type="VBoxContainer" parent="Margin/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.7, 0.8, 0.95, 1)
-theme_override_font_sizes/font_size = 13
-text = "Active functions"
-horizontal_alignment = 1
-
-[node name="Columns" type="HBoxContainer" parent="Margin/VBox"]
-layout_mode = 2
 size_flags_vertical = 3
-theme_override_constants/separation = 16
-
-[node name="Left" type="VBoxContainer" parent="Margin/VBox/Columns"]
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_stretch_ratio = 1.4
 theme_override_constants/separation = 8
 
-[node name="ModulesHeader" type="Label" parent="Margin/VBox/Columns/Left"]
+[node name="ModulesHeader" type="Label" parent="Margin/VBox/CompartmentsPage"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.85, 0.8, 0.95, 1)
-text = "Crew assignment"
+text = "Work slots — click to open or close"
 
-[node name="ModuleScroll" type="ScrollContainer" parent="Margin/VBox/Columns/Left"]
+[node name="ModuleScroll" type="ScrollContainer" parent="Margin/VBox/CompartmentsPage"]
 layout_mode = 2
 size_flags_vertical = 3
+horizontal_scroll_mode = 0
 
-[node name="ModuleGrid" type="GridContainer" parent="Margin/VBox/Columns/Left/ModuleScroll"]
+[node name="ModuleGrid" type="HFlowContainer" parent="Margin/VBox/CompartmentsPage/ModuleScroll"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/h_separation = 12
 theme_override_constants/v_separation = 12
-columns = 4
 
-[node name="Right" type="VBoxContainer" parent="Margin/VBox/Columns"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 8
-
-[node name="DetailsHeader" type="Label" parent="Margin/VBox/Columns/Right"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.85, 0.8, 0.95, 1)
-text = "Module / Function"
-
-[node name="DetailsPanel" type="PanelContainer" parent="Margin/VBox/Columns/Right"]
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="DetailsMargin" type="MarginContainer" parent="Margin/VBox/Columns/Right/DetailsPanel"]
-layout_mode = 2
-theme_override_constants/margin_left = 16
-theme_override_constants/margin_top = 16
-theme_override_constants/margin_right = 16
-theme_override_constants/margin_bottom = 16
-
-[node name="DetailsLabel" type="Label" parent="Margin/VBox/Columns/Right/DetailsPanel/DetailsMargin"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_vertical = 3
-theme_override_colors/font_color = Color(0.9, 0.88, 1, 1)
-theme_override_font_sizes/font_size = 16
-text = "Details"
-autowrap_mode = 3
-
-[node name="Hint" type="Label" parent="Margin/VBox"]
+[node name="CompartmentsHint" type="Label" parent="Margin/VBox/CompartmentsPage"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.75, 0.9, 1)
-theme_override_font_sizes/font_size = 14
-text = "Carrier is fully built. Assign crew to bring systems online. Grow the roster by boarding derelicts with shuttles."
+theme_override_font_sizes/font_size = 13
+text = "Mess cooks make fresh meals (cap 10); open eat seats for off-duty crew. Kitchen uses raw food to make food."
 horizontal_alignment = 1
+
+[node name="CrewPage" type="VBoxContainer" parent="Margin/VBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="CrewLabel" type="Label" parent="Margin/VBox/CrewPage"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 15
+text = "Crew"
+horizontal_alignment = 1
+
+[node name="PoolHeader" type="Label" parent="Margin/VBox/CrewPage"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.8, 0.95, 1)
+text = "Crew spreadsheet — Name · Activity · Time · Food · Rest · Fun"
+
+[node name="PoolPanel" type="PanelContainer" parent="Margin/VBox/CrewPage"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="PoolMargin" type="MarginContainer" parent="Margin/VBox/CrewPage/PoolPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="PoolScroll" type="ScrollContainer" parent="Margin/VBox/CrewPage/PoolPanel/PoolMargin"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="PoolFlow" type="VBoxContainer" parent="Margin/VBox/CrewPage/PoolPanel/PoolMargin/PoolScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 2
+
+[node name="CrewHint" type="Label" parent="Margin/VBox/CrewPage"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.75, 0.9, 1)
+theme_override_font_sizes/font_size = 13
+text = "Rec 2h · Sleep 8h · Work 4h (green) / 8h (yellow). Red forces everyone to work. Needs below 25% skip work."
+horizontal_alignment = 1
+
+[connection signal="toggled" from="Margin/VBox/TabBar/CompartmentsTabButton" to="." method="_on_compartments_tab_toggled"]
+[connection signal="toggled" from="Margin/VBox/TabBar/CrewTabButton" to="." method="_on_crew_tab_toggled"]

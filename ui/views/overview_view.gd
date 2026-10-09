@@ -13,6 +13,7 @@ func _ready() -> void:
 	FleetData.fleet_changed.connect(_refresh)
 	MissionData.mission_changed.connect(_refresh)
 	MissionData.jump_drive_changed.connect(_refresh)
+	GameTime.time_changed.connect(_refresh)
 	_refresh()
 
 
@@ -26,16 +27,16 @@ func _refresh() -> void:
 	if in_safe:
 		_sector_label.text += "\nSafe zone active."
 	else:
-		_sector_label.text += "\nCarrier is outside the safe zone."
+		_sector_label.text += "\nMothership is outside the safe zone."
 	var refine_status := "idle"
 	if ShipData.is_refining():
 		refine_status = "smelting %.0f ore/s" % ShipData.get_refine_rate()
 	elif ShipData.get_refine_rate() <= 0.0:
-		refine_status = "assign crew to Refinery"
+		refine_status = "offline"
 	elif ShipData.get_ore() <= 0.0:
-		refine_status = "waiting for ore"
+		refine_status = "waiting for ore (eff %.1f)" % ShipData.get_function_efficiency("refinery")
 	_carrier_label.text = "\n".join([
-		"Carrier status",
+		"Mothership status",
 		"Speed %d · Hull %d" % [int(ShipData.get_speed()), int(ShipData.get_max_hp())],
 		"Ore %d / %d · Resources %d" % [
 			int(ShipData.get_ore()),
@@ -48,11 +49,17 @@ func _refresh() -> void:
 			ShipData.get_hangar_capacity(),
 			ShipData.get_dock_slots(),
 		],
-		"Crewed systems: %s" % _active_functions_text(),
+		"Systems: %s" % _active_functions_text(),
 	])
-	var feed_line := "Mess: needs crew"
-	if ShipData.get_feed_rate() > 0.0:
-		feed_line = "Mess: feeding" if ShipData.is_crew_fed() else "Mess: out of meals"
+	var feed_line := "Mess: offline"
+	if ShipData.has_function("mess_hall"):
+		feed_line = "Mess: %d/%d meals · cooks %.1f" % [
+			int(ShipData.get_meals()),
+			int(ShipData.MEALS_CAPACITY),
+			ShipData.get_meal_cook_rate(),
+		]
+		if ShipData.get_meals() <= 0.0 and ShipData.get_meal_cook_rate() <= 0.0:
+			feed_line = "Mess: no cooks / no meals"
 	var mid := MissionData.current_mission_id
 	var known := MissionData.count_known_survivors_on_mission(mid)
 	var unexplored := MissionData.count_unexplored_derelicts(mid)
@@ -64,23 +71,38 @@ func _refresh() -> void:
 	elif known > 0:
 		survivor_line = "Survivors confirmed: %d (board with Shuttle)" % known
 	_crew_label.text = "\n".join([
-		"Crew & life support",
-		"%d available · %d assigned · %d total" % [
+		"Crew & alert mode",
+		GameTime.get_clock_text(),
+		CrewData.get_mode_label(),
+		CrewData.get_needs_summary(),
+		"%d free · %d working · %d total" % [
 			CrewData.get_unassigned(),
 			CrewData.get_assigned_total(),
 			CrewData.total_crew,
 		],
-		"Produce %d · Meals %d" % [int(ShipData.get_produce()), int(ShipData.get_meals())],
+		"Raw food %d · Mess meals %d/%d · Food %d" % [
+			int(ShipData.get_produce()),
+			int(ShipData.get_meals()),
+			int(ShipData.MEALS_CAPACITY),
+			int(ShipData.get_supply("food_rations")),
+		],
 		feed_line,
-		"%s — Hangar → Shuttle → Map" % survivor_line,
+		"%s — Hangar → Launch → Map" % survivor_line,
 		_jump_drive_line(),
 	])
 	_fleet_label.text = "\n".join([
-		"Strike craft",
-		"Interceptors stored: %d" % FleetData.get_stored("interceptor"),
-		"Bombers stored: %d" % FleetData.get_stored("bomber"),
-		"Miners stored: %d" % FleetData.get_stored("miner"),
-		"Shuttles stored: %d" % FleetData.get_stored("shuttle"),
+		"Chassis aboard",
+		"Small: %d" % FleetData.get_stored("small"),
+		"Medium: %d" % FleetData.get_stored("medium"),
+		"Large: %d" % FleetData.get_stored("large"),
+		"Main bay %d/%d · Launch %d/%d · Land %d/%d" % [
+			FleetData.get_bay_used(FleetData.BAY_MAIN),
+			FleetData.get_bay_capacity(FleetData.BAY_MAIN),
+			FleetData.get_bay_used(FleetData.BAY_LAUNCHING),
+			FleetData.get_bay_capacity(FleetData.BAY_LAUNCHING),
+			FleetData.get_bay_used(FleetData.BAY_LANDING),
+			FleetData.get_bay_capacity(FleetData.BAY_LANDING),
+		],
 		"Deployed: %d · Pilots: %d · Free crew: %d" % [
 			FleetData.deployed_bodies,
 			CrewData.get_craft_pilots(),
@@ -96,15 +118,24 @@ func _active_functions_text() -> String:
 		return "none"
 	var labels: PackedStringArray = []
 	for function_id in active:
-		labels.append(ShipData.get_function_label(function_id))
+		labels.append(
+			"%s %.1f" % [
+				ShipData.get_function_label(function_id),
+				ShipData.get_function_efficiency(function_id),
+			]
+		)
 	return ", ".join(labels)
 
 
 func _jump_drive_line() -> String:
 	if not ShipData.has_function("jump_drive"):
-		return "Jump Drive: needs crew"
+		return "Jump Drive: offline"
+	var eff := ShipData.get_function_efficiency("jump_drive")
 	if MissionData.is_jump_ready():
-		return "Jump Drive: charged"
+		return "Jump Drive: charged (eff %.1f)" % eff
 	if MissionData.is_jump_charging():
-		return "Jump Drive: charging %.0f%%" % (MissionData.get_jump_charge_percent() * 100.0)
-	return "Jump Drive: idle (90s charge)"
+		return "Jump Drive: charging %.0f%% (eff %.1f)" % [
+			MissionData.get_jump_charge_percent() * 100.0,
+			eff,
+		]
+	return "Jump Drive: idle (%.0fs · eff %.1f)" % [ShipData.get_jump_charge_seconds(), eff]

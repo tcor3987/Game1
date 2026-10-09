@@ -37,8 +37,8 @@ const MISSION_DEFS := {
 	"haven": {
 		"name": "Haven Anchorage",
 		"type": "home",
-		"summary": "Peaceful home sector. Mine the asteroid, board the anchorage wreck (contents unknown), and outfit the carrier.",
-		"objective": "Rest, refine, board the wreck with a shuttle, and prepare for the next contract.",
+		"summary": "Peaceful home sector. Station crew on the asteroid and wreck, haul stockpiles home, and outfit the mothership.",
+		"objective": "Rest, refine, station crew to mine/salvage, haul cargo home, and prepare for the next contract.",
 		"spawn": Vector2(700, 420),
 		"safe_zone": true,
 		"safe_zone_name": "Haven Anchorage",
@@ -61,7 +61,7 @@ const MISSION_DEFS := {
 		"name": "Scrap Drift",
 		"type": "sos",
 		"summary": "A junk field of dead hulls. Boarding teams must explore each wreck — contents unknown.",
-		"objective": "Send shuttles to explore derelicts, clear threats, recover any survivors.",
+		"objective": "Explore wrecks, station crew to salvage, recover survivors, haul scrap home.",
 		"spawn": Vector2(640, 720),
 		"safe_zone": true,
 		"safe_zone_name": "Scrap Drift",
@@ -77,7 +77,7 @@ const MISSION_DEFS := {
 		"name": "Silent Wake",
 		"type": "sos",
 		"summary": "A cold convoy wreck. Weak signals, no confirmed contacts.",
-		"objective": "Board the wrecks with shuttles. Clear threats and recover survivors if found.",
+		"objective": "Explore wrecks with expedition/transport craft, station crew to salvage, clear threats, recover survivors.",
 		"spawn": Vector2(520, 480),
 		"safe_zone": true,
 		"safe_zone_name": "Silent Wake",
@@ -93,7 +93,7 @@ const MISSION_DEFS := {
 		"name": "Iron Shoals",
 		"type": "asteroid",
 		"summary": "A dense asteroid shoal rich in raw ore.",
-		"objective": "Mine the field and refine ore back on the carrier.",
+		"objective": "Station crew on asteroids, haul stockpiles by cargo/mining craft, refine on the mothership.",
 		"spawn": Vector2(600, 700),
 		"safe_zone": true,
 		"safe_zone_name": "Iron Shoals",
@@ -164,6 +164,8 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if GameTime.is_paused():
+		return
 	if not jump_charging:
 		return
 	if not ShipData.has_function("jump_drive"):
@@ -437,6 +439,7 @@ func extract_scrap(mission_id: String, derelict_id: String, amount: float) -> fl
 	return taken
 
 
+## Remove one survivor from a derelict. Caller places them on a shuttle inventory.
 func rescue_one(mission_id: String, derelict_id: String) -> bool:
 	if not is_derelict_explored(mission_id, derelict_id):
 		return false
@@ -444,7 +447,6 @@ func rescue_one(mission_id: String, derelict_id: String) -> bool:
 	if remaining <= 0:
 		return false
 	set_survivors_remaining(mission_id, derelict_id, remaining - 1)
-	CrewData.add_crew(1)
 	return true
 
 

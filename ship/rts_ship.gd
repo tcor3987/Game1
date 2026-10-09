@@ -19,6 +19,7 @@ func get_move_target() -> Vector2:
 
 func _ready() -> void:
 	add_to_group("carrier")
+	add_to_group("mothership")
 	global_position = ShipData.map_position
 	rotation = ShipData.map_rotation
 	hp = ShipData.get_max_hp()
@@ -28,6 +29,10 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if GameTime.is_paused():
+		velocity = Vector2.ZERO
+		_sync_to_ship_data()
+		return
 	if _target == null or not ShipData.has_function("propulsion"):
 		velocity = Vector2.ZERO
 		_sync_to_ship_data()

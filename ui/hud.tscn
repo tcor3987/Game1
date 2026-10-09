@@ -14,33 +14,23 @@ grow_vertical = 2
 mouse_filter = 2
 color = Color(0.05, 0.04, 0.08, 1)
 
-[node name="MapHost" type="Control" parent="."]
-unique_name_in_owner = true
+[node name="Root" type="VBoxContainer" parent="."]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = 64.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 0
-
-[node name="PopupHost" type="Control" parent="."]
-unique_name_in_owner = true
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_top = 64.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
+theme_override_constants/separation = 0
 
-[node name="TopBar" type="ColorRect" parent="."]
-anchors_preset = 10
-anchor_right = 1.0
-offset_bottom = 64
+[node name="TopBar" type="ColorRect" parent="Root"]
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
 color = Color(0.12, 0.09, 0.18, 0.94)
 
-[node name="Margin" type="MarginContainer" parent="TopBar"]
+[node name="Margin" type="MarginContainer" parent="Root/TopBar"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -52,42 +42,120 @@ theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 16
 theme_override_constants/margin_bottom = 10
 
-[node name="Buttons" type="HBoxContainer" parent="TopBar/Margin"]
+[node name="BarRow" type="HBoxContainer" parent="Root/TopBar/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 12
-alignment = 1
 
-[node name="OverviewButton" type="Button" parent="TopBar/Margin/Buttons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 40)
+[node name="Buttons" type="HBoxContainer" parent="Root/TopBar/Margin/BarRow"]
 layout_mode = 2
-size_flags_horizontal = 3
+theme_override_constants/separation = 12
+alignment = 0
+
+[node name="OverviewButton" type="Button" parent="Root/TopBar/Margin/BarRow/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(110, 40)
+layout_mode = 2
 toggle_mode = true
 text = "Overview"
 
-[node name="HangarButton" type="Button" parent="TopBar/Margin/Buttons"]
+[node name="MapButton" type="Button" parent="Root/TopBar/Margin/BarRow/Buttons"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 40)
+custom_minimum_size = Vector2(90, 40)
 layout_mode = 2
-size_flags_horizontal = 3
+toggle_mode = true
+text = "Map"
+
+[node name="HangarButton" type="Button" parent="Root/TopBar/Margin/BarRow/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(90, 40)
+layout_mode = 2
 toggle_mode = true
 text = "Hangar"
 
-[node name="CompartmentsButton" type="Button" parent="TopBar/Margin/Buttons"]
+[node name="CompartmentsButton" type="Button" parent="Root/TopBar/Margin/BarRow/Buttons"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 40)
+custom_minimum_size = Vector2(130, 40)
 layout_mode = 2
-size_flags_horizontal = 3
 toggle_mode = true
 text = "Compartments"
 
-[node name="MissionsButton" type="Button" parent="TopBar/Margin/Buttons"]
+[node name="InventoryButton" type="Button" parent="Root/TopBar/Margin/BarRow/Buttons"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 40)
+custom_minimum_size = Vector2(100, 40)
 layout_mode = 2
-size_flags_horizontal = 3
+toggle_mode = true
+text = "Inventory"
+
+[node name="MissionsButton" type="Button" parent="Root/TopBar/Margin/BarRow/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(100, 40)
+layout_mode = 2
 toggle_mode = true
 text = "Missions"
+
+[node name="BarSpacer" type="Control" parent="Root/TopBar/Margin/BarRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="ClockLabel" type="Label" parent="Root/TopBar/Margin/BarRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(140, 0)
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(0.85, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "Day 1 · 08:00"
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="ModeBox" type="PanelContainer" parent="Root/TopBar/Margin/BarRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(132, 0)
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="ModeMargin" type="MarginContainer" parent="Root/TopBar/Margin/BarRow/ModeBox"]
+layout_mode = 2
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 4
+
+[node name="ModeButtons" type="HBoxContainer" parent="Root/TopBar/Margin/BarRow/ModeBox/ModeMargin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="ModeGreenButton" type="Button" parent="Root/TopBar/Margin/BarRow/ModeBox/ModeMargin/ModeButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+toggle_mode = true
+button_pressed = true
+tooltip_text = "Green — work shifts 4h"
+
+[node name="ModeYellowButton" type="Button" parent="Root/TopBar/Margin/BarRow/ModeBox/ModeMargin/ModeButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+toggle_mode = true
+tooltip_text = "Yellow — work shifts 8h"
+
+[node name="ModeRedButton" type="Button" parent="Root/TopBar/Margin/BarRow/ModeBox/ModeMargin/ModeButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+toggle_mode = true
+tooltip_text = "Red — cancel rest, force all mothership crew to work"
+
+[node name="ViewHost" type="Control" parent="Root"]
+unique_name_in_owner = true
+clip_contents = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 0
 
 [node name="Hint" type="Label" parent="."]
 anchors_preset = 2
@@ -101,9 +169,14 @@ grow_vertical = 0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.8, 0.75, 0.9, 1)
 theme_override_font_sizes/font_size = 16
-text = "Esc saves and returns to menu"
+text = "Esc opens the game menu"
 
-[connection signal="toggled" from="TopBar/Margin/Buttons/OverviewButton" to="." method="_on_overview_toggled"]
-[connection signal="toggled" from="TopBar/Margin/Buttons/HangarButton" to="." method="_on_hangar_toggled"]
-[connection signal="toggled" from="TopBar/Margin/Buttons/CompartmentsButton" to="." method="_on_compartments_toggled"]
-[connection signal="toggled" from="TopBar/Margin/Buttons/MissionsButton" to="." method="_on_missions_toggled"]
+[connection signal="pressed" from="Root/TopBar/Margin/BarRow/ModeBox/ModeMargin/ModeButtons/ModeGreenButton" to="." method="_on_mode_green_pressed"]
+[connection signal="pressed" from="Root/TopBar/Margin/BarRow/ModeBox/ModeMargin/ModeButtons/ModeYellowButton" to="." method="_on_mode_yellow_pressed"]
+[connection signal="pressed" from="Root/TopBar/Margin/BarRow/ModeBox/ModeMargin/ModeButtons/ModeRedButton" to="." method="_on_mode_red_pressed"]
+[connection signal="toggled" from="Root/TopBar/Margin/BarRow/Buttons/OverviewButton" to="." method="_on_overview_toggled"]
+[connection signal="toggled" from="Root/TopBar/Margin/BarRow/Buttons/MapButton" to="." method="_on_map_toggled"]
+[connection signal="toggled" from="Root/TopBar/Margin/BarRow/Buttons/HangarButton" to="." method="_on_hangar_toggled"]
+[connection signal="toggled" from="Root/TopBar/Margin/BarRow/Buttons/CompartmentsButton" to="." method="_on_compartments_toggled"]
+[connection signal="toggled" from="Root/TopBar/Margin/BarRow/Buttons/InventoryButton" to="." method="_on_inventory_toggled"]
+[connection signal="toggled" from="Root/TopBar/Margin/BarRow/Buttons/MissionsButton" to="." method="_on_missions_toggled"]

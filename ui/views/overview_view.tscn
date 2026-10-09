@@ -48,7 +48,7 @@ horizontal_alignment = 1
 layout_mode = 2
 theme_override_colors/font_color = Color(0.75, 0.85, 1, 1)
 theme_override_font_sizes/font_size = 16
-text = "Carrier command summary"
+text = "Mothership command summary"
 horizontal_alignment = 1
 
 [node name="Grid" type="GridContainer" parent="Margin/VBox"]
@@ -97,7 +97,7 @@ layout_mode = 2
 size_flags_vertical = 3
 theme_override_colors/font_color = Color(0.9, 0.95, 1, 1)
 theme_override_font_sizes/font_size = 16
-text = "Carrier"
+text = "Mothership"
 autowrap_mode = 3
 
 [node name="CrewPanel" type="PanelContainer" parent="Margin/VBox/Grid"]

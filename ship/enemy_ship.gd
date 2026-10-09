@@ -18,6 +18,9 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if GameTime.is_paused():
+		velocity = Vector2.ZERO
+		return
 	_find_target()
 	if _hunt_target == null:
 		velocity = Vector2.ZERO

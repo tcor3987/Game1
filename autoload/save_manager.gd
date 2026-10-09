@@ -39,9 +39,10 @@ func read_save(slot: int) -> Dictionary:
 
 func write_save(slot: int) -> void:
 	var data := {
-		"version": 7,
+		"version": 8,
 		"saved_at": Time.get_unix_time_from_system(),
 		"ship": ShipData.to_save_dict(),
+		"time": GameTime.to_save_dict(),
 		"crew": CrewData.to_save_dict(),
 		"fleet": FleetData.to_save_dict(),
 		"missions": MissionData.to_save_dict(),
@@ -76,6 +77,7 @@ func first_empty_slot() -> int:
 
 func start_new_game() -> void:
 	ShipData.reset_for_new_game()
+	GameTime.reset_for_new_game()
 	CrewData.reset_for_new_game()
 	FleetData.reset_for_new_game()
 	MissionData.reset_for_new_game()
@@ -100,6 +102,11 @@ func load_slot(slot: int) -> void:
 		ShipData.apply_save_dict(ship_data)
 	else:
 		ShipData.reset_for_new_game()
+	var time_data = data.get("time", {})
+	if typeof(time_data) == TYPE_DICTIONARY:
+		GameTime.apply_save_dict(time_data)
+	else:
+		GameTime.reset_for_new_game()
 	var crew_data = data.get("crew", {})
 	if typeof(crew_data) == TYPE_DICTIONARY:
 		CrewData.apply_save_dict(crew_data)
