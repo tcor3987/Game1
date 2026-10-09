@@ -1,21 +1,29 @@
-[gd_scene load_steps=2 format=3 uid="uid://btfpyhsbueaea"]
+[gd_scene load_steps=3 format=3 uid="uid://btfpyhsbueaea"]
 
 [ext_resource type="Script" path="res://ship/derelict.gd" id="1_derelict"]
 
-[node name="Derelict" type="Node2D"]
+[sub_resource type="CircleShape2D" id="CircleShape2D_body"]
+radius = 16.0
+
+[node name="Derelict" type="CharacterBody2D"]
+process_mode = 3
+collision_layer = 4
+collision_mask = 0
+motion_mode = 1
 script = ExtResource("1_derelict")
 
-[node name="Hull" type="Polygon2D" parent="."]
+[node name="SelectionRing" type="Polygon2D" parent="."]
+visible = false
+z_index = -1
+color = Color(0.55, 0.85, 1.0, 0.35)
+polygon = PackedVector2Array(-22, -22, 22, -22, 22, 22, -22, 22)
+
+[node name="Body" type="Polygon2D" parent="."]
 color = Color(0.42, 0.45, 0.5, 1)
-polygon = PackedVector2Array(-70, -18, -20, -36, 55, -28, 72, 0, 48, 32, -30, 38, -68, 12)
+polygon = PackedVector2Array(14, 0, -10, -7, -4, 0, -10, 7)
 
-[node name="Scar" type="Polygon2D" parent="."]
-color = Color(0.28, 0.22, 0.2, 1)
-polygon = PackedVector2Array(-8, -20, 24, -8, 18, 16, -18, 8)
-
-[node name="Wing" type="Polygon2D" parent="."]
-color = Color(0.35, 0.38, 0.44, 1)
-polygon = PackedVector2Array(40, -8, 78, -40, 86, -22, 58, 10)
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_body")
 
 [node name="Label" type="Label" parent="."]
 offset_left = -56.0
@@ -24,6 +32,6 @@ offset_right = 56.0
 offset_bottom = -40.0
 theme_override_colors/font_color = Color(0.85, 0.92, 1, 1)
 theme_override_font_sizes/font_size = 14
-text = "Derelict
-Signals unknown"
+text = "Wreck
+Dock · Explore"
 horizontal_alignment = 1
