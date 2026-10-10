@@ -186,7 +186,7 @@ const COMPARTMENT_DEFS := {
 	"crew_quarters": {
 		"name": "Crew Quarters",
 		"function": "crew_quarters",
-		"description": "Berths and lockers. Staff posts ease mess demand; open bunks for sleeping.",
+		"description": "Berths and lockers. Open bunks for sleeping shifts.",
 		"meal_relief": 0.15,
 	},
 	"jump_drive": {
@@ -210,7 +210,7 @@ const COMPARTMENT_DEFS := {
 	"mess_hall": {
 		"name": "Mess Hall",
 		"function": "mess_hall",
-		"description": "Cooks fresh meals from raw food (cap 10). Open eat posts for off-duty crew.",
+		"description": "Cooks fresh meals from raw food. Dining seats for meal shifts.",
 		"meal_cook_rate": 1.0,
 	},
 	"recreation": {
@@ -522,7 +522,7 @@ func has_module(module_id: String, amount: int = 1) -> bool:
 
 
 func add_module(module_id: String, amount: int = 1) -> int:
-	if amount <= 0 or not FleetData.MODULE_DEFS.has(module_id):
+	if amount <= 0:
 		return 0
 	_ensure_modules()
 	modules[module_id] = get_module_count(module_id) + amount
@@ -685,11 +685,11 @@ func describe_compartment(compartment_id: String) -> String:
 	if function_id == "crew_quarters":
 		var relief := float(def.get("meal_relief", 0.0)) * CrewData.get_operation_multiplier(compartment_id)
 		lines.append("Meal demand relief: %.0f%%" % (relief * 100.0))
-		lines.append("Sleep bunks: %d asleep / %d open" % [
+		lines.append("Sleep bunks: %d asleep / %d capacity" % [
 			CrewData.count_sleepers(),
-			CrewData.get_open_sleep_slot_count(),
+			CrewData.get_sleep_bunk_capacity(),
 		])
-		lines.append("Crew roster: %d (grow it by boarding derelicts on jump missions)" % CrewData.total_crew)
+		lines.append("Crew roster: %d / %d" % [CrewData.total_crew, CrewData.MAX_CREW])
 	if function_id == "jump_drive":
 		var charge_secs := get_jump_charge_seconds()
 		if MissionData.is_jump_charging():
@@ -727,26 +727,24 @@ func describe_compartment(compartment_id: String) -> String:
 	if function_id == "mess_hall":
 		var cook := get_meal_cook_rate()
 		var eating := CrewData.count_mess_eaters()
-		var eat_open := CrewData.get_open_eat_slot_count()
 		if cook <= 0.0:
-			lines.append("Status: no cooks — open work slots to make meals.")
+			lines.append("Status: no cooks — raise staff target so crew auto-fill.")
 		elif produce <= 0.0:
 			lines.append("Status: waiting for raw food · Meals %d / %d" % [int(meals), int(MEALS_CAPACITY)])
 		elif meals >= MEALS_CAPACITY:
-			lines.append("Status: meal trays full (%d) — open eat posts." % int(MEALS_CAPACITY))
+			lines.append("Status: meal trays full (%d)." % int(MEALS_CAPACITY))
 		else:
 			lines.append("Status: cooking %.1f meals/s · Meals %d / %d" % [cook, int(meals), int(MEALS_CAPACITY)])
-		lines.append("Eat posts: %d dining / %d open" % [eating, eat_open])
+		lines.append("Dining: %d / %d capacity" % [
+			eating,
+			CrewData.get_eat_seat_capacity(),
+		])
 	if function_id == "recreation":
 		var relaxing := CrewData.get_assigned(compartment_id)
-		var open_n := CrewData.get_open_slot_count(compartment_id)
-		if open_n <= 0:
-			lines.append("Status: all lounge posts closed — open slots so crew can relax.")
-		elif relaxing > 0:
+		if relaxing > 0:
 			lines.append("Status: %d crew relaxing · fun recovers faster here." % relaxing)
 		else:
-			lines.append("Status: %d open lounge posts — waiting for crew off duty." % open_n)
-		lines.append("Open a post, then low-fun crew will cycle in automatically.")
+			lines.append("Status: lounge open — waiting for crew off duty.")
 	return "\n".join(lines)
 
 
@@ -985,27 +983,19 @@ func _load_supplies(saved) -> void:
 
 func _ensure_modules() -> void:
 	if modules.is_empty():
-		_reset_modules_to_start()
-		return
-	for module_id in FleetData.MODULE_ORDER:
-		if not modules.has(module_id):
-			modules[module_id] = 0
+		modules.clear()
 
 
 func _reset_modules_to_start() -> void:
 	modules.clear()
-	for module_id in FleetData.MODULE_ORDER:
-		var def := FleetData.get_module_def(module_id)
-		modules[module_id] = maxi(int(def.get("start", 0)), 0)
 
 
 func _load_modules(saved) -> void:
-	_reset_modules_to_start()
+	modules.clear()
 	if typeof(saved) != TYPE_DICTIONARY:
 		return
-	for module_id in FleetData.MODULE_ORDER:
-		if saved.has(module_id):
-			modules[module_id] = maxi(int(saved[module_id]), 0)
+	for module_id in saved.keys():
+		modules[str(module_id)] = maxi(int(saved[module_id]), 0)
 
 
 func _supplies_fingerprint() -> String:

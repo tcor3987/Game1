@@ -66,6 +66,14 @@ func _find_target() -> void:
 		if dist < best_dist:
 			best_dist = dist
 			best = node
+	## Prefer nearby control teams (absorbed combat groups).
+	for node in get_tree().get_nodes_in_group("control_teams"):
+		if not is_instance_valid(node):
+			continue
+		var dist := global_position.distance_to(node.global_position)
+		if dist < best_dist:
+			best_dist = dist
+			best = node
 	if best == null:
 		var carrier := get_tree().get_first_node_in_group("carrier")
 		if carrier is Node2D:

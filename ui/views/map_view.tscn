@@ -29,7 +29,7 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 180.0
+offset_left = 280.0
 offset_top = 148.0
 offset_right = -168.0
 offset_bottom = -8.0
@@ -154,7 +154,7 @@ position = Vector2(700, 420)
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_left = 180.0
+offset_left = 280.0
 offset_right = -168.0
 offset_bottom = 140.0
 grow_horizontal = 2
@@ -182,45 +182,34 @@ theme_override_colors/font_color = Color(0.75, 0.85, 1, 1)
 theme_override_font_sizes/font_size = 13
 text = "Fleet"
 
-[node name="PortsHeader" type="Label" parent="TopHud/VBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.8, 0.85, 1, 1)
-theme_override_font_sizes/font_size = 12
-text = "Docking ports"
-
-[node name="PortsRow" type="HBoxContainer" parent="TopHud/VBox"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 72)
-layout_mode = 2
-theme_override_constants/separation = 6
-
 [node name="SelectionBar" type="MarginContainer" parent="."]
 layout_mode = 1
 anchors_preset = 9
 anchor_bottom = 1.0
 offset_top = 8.0
-offset_right = 180.0
+offset_right = 280.0
 grow_horizontal = 0
 grow_vertical = 2
-theme_override_constants/margin_left = 12
+theme_override_constants/margin_left = 8
 theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 8
+theme_override_constants/margin_right = 6
 theme_override_constants/margin_bottom = 12
 
 [node name="Panel" type="PanelContainer" parent="SelectionBar"]
 layout_mode = 2
 size_flags_vertical = 3
+clip_contents = true
 
 [node name="Margin" type="MarginContainer" parent="SelectionBar/Panel"]
 layout_mode = 2
 theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 10
+theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 10
+theme_override_constants/margin_bottom = 8
 
 [node name="VBox" type="VBoxContainer" parent="SelectionBar/Panel/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
 [node name="SelectionHeader" type="Label" parent="SelectionBar/Panel/Margin/VBox"]
 layout_mode = 2
@@ -241,17 +230,24 @@ autowrap_mode = 3
 [node name="SelectionBody" type="Label" parent="SelectionBar/Panel/Margin/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-size_flags_vertical = 3
+size_flags_vertical = 0
 theme_override_colors/font_color = Color(0.78, 0.84, 0.98, 1)
 theme_override_font_sizes/font_size = 12
-text = "Click the mothership or a strike craft on the map."
+text = "Select mothership, craft, site, or team."
 autowrap_mode = 3
 
-[node name="SelectionActions" type="HBoxContainer" parent="SelectionBar/Panel/Margin/VBox"]
+[node name="SelectionScroll" type="ScrollContainer" parent="SelectionBar/Panel/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+size_flags_stretch_ratio = 2.0
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 1
+
+[node name="SelectionActions" type="VBoxContainer" parent="SelectionBar/Panel/Margin/VBox/SelectionScroll"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_constants/separation = 6
-alignment = 1
 
 [node name="CommandsHeader" type="Label" parent="SelectionBar/Panel/Margin/VBox"]
 layout_mode = 2
@@ -262,6 +258,7 @@ horizontal_alignment = 1
 
 [node name="CmdGrid" type="GridContainer" parent="SelectionBar/Panel/Margin/VBox"]
 layout_mode = 2
+size_flags_vertical = 0
 theme_override_constants/h_separation = 6
 theme_override_constants/v_separation = 6
 columns = 3
@@ -377,18 +374,26 @@ theme_override_font_sizes/font_size = 13
 text = "Build and launch craft from the Hangar tab."
 autowrap_mode = 3
 
+[node name="NewTeamButton" type="Button" parent="SideBar/Panel/Margin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+expand_icon = true
+tooltip_text = "New control team"
+
 [node name="RecallButton" type="Button" parent="SideBar/Panel/Margin/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 32)
+custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
-text = "Recall"
+expand_icon = true
+tooltip_text = "Recall strike craft"
 
 [node name="HintLabel" type="Label" parent="SideBar/Panel/Margin/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.75, 0.8, 0.95, 1)
 theme_override_font_sizes/font_size = 12
-text = "Launch/land 5s · hangar↔port 60s. Station crew on asteroids/wrecks to mine/salvage; cargo hauls stockpiles."
+text = "Hover icons for tips."
 horizontal_alignment = 1
 autowrap_mode = 3
 
@@ -400,4 +405,5 @@ autowrap_mode = 3
 [connection signal="pressed" from="SelectionBar/Panel/Margin/VBox/CmdGrid/CmdDockButton" to="." method="_on_cmd_dock_pressed"]
 [connection signal="pressed" from="SelectionBar/Panel/Margin/VBox/CmdGrid/CmdAttackButton" to="." method="_on_cmd_attack_pressed"]
 [connection signal="pressed" from="SelectionBar/Panel/Margin/VBox/CmdGrid/CmdRecallButton" to="." method="_on_cmd_recall_pressed"]
+[connection signal="pressed" from="SideBar/Panel/Margin/VBox/NewTeamButton" to="." method="_on_new_team_pressed"]
 [connection signal="pressed" from="SideBar/Panel/Margin/VBox/RecallButton" to="." method="_on_recall_pressed"]

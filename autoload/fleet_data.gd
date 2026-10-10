@@ -41,145 +41,236 @@ const OP_DISASSEMBLE := "disassemble"
 const OP_DOCK := "dock"
 const OP_STOW := "stow"
 
-const CHASSIS_ORDER := ["small", "medium", "large"]
-
-const CHASSIS_DEFS := {
-	"small": {
-		"name": "Small Chassis",
-		"description": "Light hull. One primary, one support, one bay slot.",
-		"hangar_cost": 1,
-		"resource_cost": 25.0,
-		"crew_capacity": 1,
-		"speed": 170.0,
-		"turn_rate": 2.2,
-		"max_hp": 45.0,
-		"slots": ["primary_0", "support_0", "bay_0"],
-	},
-	"medium": {
-		"name": "Medium Chassis",
-		"description": "Workhorse hull. Two primary, support, bay, and sensor.",
-		"hangar_cost": 2,
-		"resource_cost": 40.0,
-		"crew_capacity": 1,
-		"speed": 145.0,
-		"turn_rate": 1.8,
-		"max_hp": 65.0,
-		"slots": ["primary_0", "primary_1", "support_0", "bay_0", "sensor_0"],
-	},
-	"large": {
-		"name": "Large Chassis",
-		"description": "Heavy hull. Twin primaries, twin supports, twin bays, sensor.",
-		"hangar_cost": 3,
-		"resource_cost": 60.0,
-		"crew_capacity": 1,
-		"speed": 120.0,
-		"turn_rate": 1.4,
-		"max_hp": 90.0,
-		"slots": ["primary_0", "primary_1", "support_0", "support_1", "bay_0", "bay_1", "sensor_0"],
-	},
-}
-
-const MODULE_ORDER := [
-	"mining_rig",
-	"salvage_rig",
-	"construction_rig",
-	"cargo_pod",
-	"passenger_cabin",
-	"survey_suite",
-	"light_gun",
-	"heavy_gun",
-	"extra_fuel",
+const CRAFT_ORDER := [
+	"interceptor",
+	"bomber",
+	"scout",
+	"expedition",
+	"combat_shuttle",
+	"passenger_shuttle",
+	"mining",
+	"salvage",
+	"ore_hauler",
+	"cargo_hauler",
+	"fuel_hauler",
+	"ammo_hauler",
 ]
 
-const MODULE_DEFS := {
-	"mining_rig": {
-		"name": "Mining Rig",
-		"slot_types": ["primary"],
-		"caps": {"can_mine": true, "can_haul_ore": true},
-		"cargo": 20.0,
-		"start": 2,
-	},
-	"salvage_rig": {
-		"name": "Salvage Rig",
-		"slot_types": ["primary"],
-		"caps": {"can_salvage": true, "can_haul_scrap": true},
-		"cargo": 20.0,
-		"start": 2,
-	},
-	"construction_rig": {
-		"name": "Construction Rig",
-		"slot_types": ["primary"],
-		"caps": {"can_build": true},
-		"start": 1,
-	},
-	"cargo_pod": {
-		"name": "Cargo Pod",
-		"slot_types": ["bay"],
-		"caps": {"can_haul_ore": true, "can_haul_scrap": true},
-		"cargo": 50.0,
-		"start": 3,
-	},
-	"passenger_cabin": {
-		"name": "Passenger Cabin",
-		"slot_types": ["bay", "support"],
-		"caps": {"boarding": true},
-		"passenger_capacity": 10,
-		"start": 3,
-	},
-	"survey_suite": {
-		"name": "Survey Suite",
-		"slot_types": ["sensor", "primary"],
-		"caps": {"can_explore": true, "boarding": true},
-		"passenger_capacity": 2,
-		"start": 2,
-	},
-	"light_gun": {
-		"name": "Light Gun",
-		"slot_types": ["primary"],
-		"caps": {"combat": true},
+## Modular-save hull ids (migration only).
+const _CHASSIS_IDS := ["small", "medium", "large"]
+
+const STRIKE_DEFS := {
+	"interceptor": {
+		"name": "Interceptor",
+		"description": "Fast escort fighter. Good against light hostiles.",
+		"role": "combat",
+		"hangar_cost": 1,
+		"resource_cost": 20.0,
+		"build_time": 25.0,
+		"crew_capacity": 1,
+		"speed": 200.0,
+		"turn_rate": 2.4,
+		"max_hp": 40.0,
 		"damage": 7.0,
 		"range": 90.0,
-		"start": 2,
+		"combat": true,
 	},
-	"heavy_gun": {
-		"name": "Heavy Gun",
-		"slot_types": ["primary"],
-		"caps": {"combat": true},
+	"bomber": {
+		"name": "Bomber",
+		"description": "Slower strike craft. Heavy ordnance at close range.",
+		"role": "combat",
+		"hangar_cost": 2,
+		"resource_cost": 40.0,
+		"build_time": 50.0,
+		"crew_capacity": 1,
+		"speed": 135.0,
+		"turn_rate": 1.6,
+		"max_hp": 70.0,
 		"damage": 16.0,
 		"range": 70.0,
-		"start": 1,
+		"combat": true,
 	},
-	"extra_fuel": {
-		"name": "Extra Fuel",
-		"slot_types": ["support"],
-		"caps": {},
-		"start": 2,
+	"scout": {
+		"name": "Scout",
+		"description": "Sensor craft. Grants short-range scanning to a control team. Extra crew speeds scans and threat detection.",
+		"role": "scout",
+		"hangar_cost": 1,
+		"resource_cost": 22.0,
+		"build_time": 28.0,
+		"crew_capacity": 2,
+		"speed": 210.0,
+		"turn_rate": 2.6,
+		"max_hp": 35.0,
+		"can_scan": true,
+	},
+	"expedition": {
+		"name": "Expedition Shuttle",
+		"description": "Field ops shuttle. Grants long-range scanning when assigned to a control team.",
+		"role": "expedition",
+		"hangar_cost": 1,
+		"resource_cost": 28.0,
+		"build_time": 35.0,
+		"crew_capacity": 2,
+		"speed": 175.0,
+		"turn_rate": 2.2,
+		"max_hp": 45.0,
+		"boarding": true,
+		"passenger_capacity": 6,
+		"can_scan": true,
+	},
+	"combat_shuttle": {
+		"name": "Combat Shuttle",
+		"description": "Armed boarding craft. Explores scanned wrecks with crew onboard to clear threats.",
+		"role": "combat_shuttle",
+		"hangar_cost": 2,
+		"resource_cost": 38.0,
+		"build_time": 48.0,
+		"crew_capacity": 8,
+		"speed": 150.0,
+		"turn_rate": 1.9,
+		"max_hp": 70.0,
+		"boarding": true,
+		"can_explore": true,
+		"damage": 5.0,
+		"range": 60.0,
+		"combat": true,
+	},
+	"passenger_shuttle": {
+		"name": "Passenger Shuttle",
+		"description": "Personnel ferry for moving crew between the carrier and sites.",
+		"role": "passenger",
+		"hangar_cost": 2,
+		"resource_cost": 30.0,
+		"build_time": 40.0,
+		"crew_capacity": 1,
+		"speed": 155.0,
+		"turn_rate": 2.0,
+		"max_hp": 50.0,
+		"boarding": true,
+		"passenger_capacity": 24,
+	},
+	"mining": {
+		"name": "Mining",
+		"description": "Ore harvester with onboard cargo. Extra crew improve automated mining teams.",
+		"role": "mining",
+		"hangar_cost": 2,
+		"resource_cost": 30.0,
+		"build_time": 40.0,
+		"crew_capacity": 5,
+		"speed": 115.0,
+		"turn_rate": 1.5,
+		"max_hp": 55.0,
+		"can_mine": true,
+		"can_haul_ore": true,
+		"cargo": 30.0,
+		"mine_rate": 10.0,
+		"unload_rate": 20.0,
+	},
+	"salvage": {
+		"name": "Salvage",
+		"description": "Wreck processor that hauls scrap. Extra crew improve automated salvage teams.",
+		"role": "salvage",
+		"hangar_cost": 2,
+		"resource_cost": 30.0,
+		"build_time": 40.0,
+		"crew_capacity": 5,
+		"speed": 110.0,
+		"turn_rate": 1.4,
+		"max_hp": 55.0,
+		"can_salvage": true,
+		"can_haul_scrap": true,
+		"cargo": 28.0,
+		"mine_rate": 8.0,
+		"unload_rate": 18.0,
+	},
+	"ore_hauler": {
+		"name": "Ore Hauler",
+		"description": "Specialized ore freighter for stockpile runs.",
+		"role": "ore_hauler",
+		"hangar_cost": 2,
+		"resource_cost": 30.0,
+		"build_time": 40.0,
+		"crew_capacity": 1,
+		"speed": 110.0,
+		"turn_rate": 1.4,
+		"max_hp": 60.0,
+		"can_haul_ore": true,
+		"cargo": 70.0,
+		"unload_rate": 26.0,
+	},
+	"cargo_hauler": {
+		"name": "Cargo Hauler",
+		"description": "Bulk hauler for ore and scrap transfers.",
+		"role": "cargo",
+		"hangar_cost": 2,
+		"resource_cost": 32.0,
+		"build_time": 42.0,
+		"crew_capacity": 1,
+		"speed": 105.0,
+		"turn_rate": 1.3,
+		"max_hp": 65.0,
+		"can_haul_ore": true,
+		"can_haul_scrap": true,
+		"cargo": 55.0,
+		"unload_rate": 24.0,
+	},
+	"fuel_hauler": {
+		"name": "Fuel Transport",
+		"description": "Logistics craft. Assigned to a group so workers stay on-station (leave only for damage).",
+		"role": "fuel",
+		"hangar_cost": 2,
+		"resource_cost": 28.0,
+		"build_time": 38.0,
+		"crew_capacity": 1,
+		"speed": 120.0,
+		"turn_rate": 1.5,
+		"max_hp": 55.0,
+		"cargo": 40.0,
+		"unload_rate": 20.0,
+	},
+	"ammo_hauler": {
+		"name": "Ammo Transport",
+		"description": "Munitions ferry. Assigned to a group so combat craft stay on-station (leave only for damage).",
+		"role": "ammo",
+		"hangar_cost": 2,
+		"resource_cost": 28.0,
+		"build_time": 38.0,
+		"crew_capacity": 1,
+		"speed": 125.0,
+		"turn_rate": 1.6,
+		"max_hp": 50.0,
+		"cargo": 35.0,
+		"unload_rate": 20.0,
+	},
+	"enemy": {
+		"name": "Hostile Hull",
+		"role": "combat",
+		"hangar_cost": 0,
+		"resource_cost": 30.0,
+		"build_time": 0.0,
+		"crew_capacity": 0,
+		"combat": true,
 	},
 }
 
-## Legacy role craft ids → chassis + default loadout (migration / look up).
-const LEGACY_LOADOUTS := {
-	"transport": {"chassis": "medium", "loadout": {"bay_0": "passenger_cabin", "sensor_0": "survey_suite", "primary_0": "survey_suite"}},
-	"cargo": {"chassis": "medium", "loadout": {"bay_0": "cargo_pod", "primary_0": "cargo_pod"}},
-	"mining": {"chassis": "medium", "loadout": {"primary_0": "mining_rig", "bay_0": "cargo_pod", "support_0": "passenger_cabin"}},
-	"salvage": {"chassis": "medium", "loadout": {"primary_0": "salvage_rig", "bay_0": "cargo_pod", "support_0": "passenger_cabin"}},
-	"expedition": {"chassis": "small", "loadout": {"primary_0": "survey_suite", "bay_0": "passenger_cabin"}},
-	"interceptor": {"chassis": "small", "loadout": {"primary_0": "light_gun"}},
-	"bomber": {"chassis": "medium", "loadout": {"primary_0": "heavy_gun", "primary_1": "heavy_gun"}},
-	"shuttle": {"chassis": "medium", "loadout": {"bay_0": "passenger_cabin", "sensor_0": "survey_suite"}},
-	"cargo_shuttle": {"chassis": "medium", "loadout": {"bay_0": "cargo_pod"}},
-	"rescue": {"chassis": "medium", "loadout": {"bay_0": "passenger_cabin", "sensor_0": "survey_suite"}},
-	"miner": {"chassis": "medium", "loadout": {"bay_0": "cargo_pod"}},
-	"recycler": {"chassis": "medium", "loadout": {"bay_0": "cargo_pod"}},
+const _ROLE_MODULE_TO_CRAFT := {
+	"role_mining": "mining",
+	"role_salvage": "salvage",
+	"role_transport": "passenger_shuttle",
+	"role_cargo": "cargo_hauler",
+	"role_expedition": "expedition",
+	"role_interceptor": "interceptor",
+	"role_bomber": "bomber",
 }
-
-## Build order shown in hangar (chassis only).
-const CRAFT_ORDER := CHASSIS_ORDER
 
 var hangar_roster: Array = []
 var parked_deployed: Array = []
 var deployed_slots: int = 0
 var deployed_bodies: int = 0
+## craft_uid → {site_uid, berth, site_kind} while outbound from hangar (legacy / unused).
+var site_dispatch: Dictionary = {}
+## craft_uid → team_uid while launching to join a control team.
+var team_dispatch: Dictionary = {}
 var _craft_serial: int = 0
 var _callsign_serial: Dictionary = {}
 var _assemble_ui_bucket: int = -1
@@ -197,150 +288,153 @@ func _process(delta: float) -> void:
 func reset_for_new_game() -> void:
 	hangar_roster.clear()
 	parked_deployed.clear()
+	site_dispatch.clear()
+	team_dispatch.clear()
 	deployed_slots = 0
 	deployed_bodies = 0
 	_craft_serial = 0
 	_callsign_serial.clear()
 	_assemble_ui_bucket = -1
 	_op_ui_bucket = -1
-	var transport_loadout := {"bay_0": "passenger_cabin", "sensor_0": "survey_suite"}
-	var cargo_loadout := {"bay_0": "cargo_pod", "primary_0": "mining_rig"}
-	var transport_uid := _add_chassis_craft("medium", true, 0, 1.0, 1.0, BAY_MAIN, transport_loadout)
-	var cargo_uid := _add_chassis_craft("medium", true, 0, 1.0, 1.0, BAY_MAIN, cargo_loadout)
-	_consume_loadout_modules(transport_loadout)
-	_consume_loadout_modules(cargo_loadout)
-	assign_crew_to_craft(transport_uid)
-	assign_crew_to_craft(cargo_uid)
+	_add_hangar_craft("scout", true, 0, 1.0, 1.0, BAY_MAIN)
+	_add_hangar_craft("mining", true, 0, 1.0, 1.0, BAY_MAIN)
 	fleet_changed.emit()
 
 
-## --- Chassis / module defs -------------------------------------------------
+## --- Craft defs / caps ----------------------------------------------------
 
-func get_chassis_def(chassis_id: String) -> Dictionary:
-	return CHASSIS_DEFS.get(chassis_id, {})
-
-
-func get_module_def(module_id: String) -> Dictionary:
-	return MODULE_DEFS.get(module_id, {})
+func normalize_craft_id(craft_id: String) -> String:
+	match craft_id:
+		"transport":
+			return "cargo_hauler"
+		"shuttle", "rescue":
+			return "passenger_shuttle"
+		"miner":
+			return "mining"
+		"cargo", "cargo_shuttle":
+			return "cargo_hauler"
+		"recycler":
+			return "salvage"
+		"expedition_shuttle":
+			return "expedition"
+		_:
+			return craft_id
 
 
 func get_strike_def(craft_id: String) -> Dictionary:
-	## Chassis id, or legacy craft id → synthetic def for stats / salvage.
-	if CHASSIS_DEFS.has(craft_id):
-		var chassis: Dictionary = CHASSIS_DEFS[craft_id].duplicate(true)
-		chassis["role"] = "chassis"
-		return chassis
-	if LEGACY_LOADOUTS.has(craft_id):
-		var mapped: Dictionary = LEGACY_LOADOUTS[craft_id]
-		var base := get_chassis_def(str(mapped.get("chassis", "medium"))).duplicate(true)
-		var caps := caps_from_loadout(mapped.get("loadout", {}))
-		base["role"] = "legacy"
-		base["passenger_capacity"] = int(caps.get("passenger_capacity", 0))
-		base["cargo"] = float(caps.get("cargo", 0.0))
-		base["damage"] = float(caps.get("damage", 0.0))
-		base["range"] = float(caps.get("range", 0.0))
-		return base
-	if craft_id == "enemy":
-		return {
-			"name": "Hostile Hull",
-			"hangar_cost": 0,
-			"resource_cost": 30.0,
-			"crew_capacity": 0,
-			"role": "combat",
-		}
-	return {}
+	craft_id = normalize_craft_id(craft_id)
+	return STRIKE_DEFS.get(craft_id, {})
 
 
-func get_build_time(_craft_id: String = "") -> float:
-	return ASSEMBLE_SECONDS
+func get_build_time(craft_id: String = "") -> float:
+	return maxf(float(get_strike_def(craft_id).get("build_time", ASSEMBLE_SECONDS)), 1.0)
 
 
 func get_crew_capacity(craft_id: String) -> int:
 	return maxi(int(get_strike_def(craft_id).get("crew_capacity", DEFAULT_CREW_CAPACITY)), 0)
 
 
-func empty_loadout(chassis_id: String) -> Dictionary:
-	var out := {}
-	for slot_id in get_chassis_slots(chassis_id):
-		out[slot_id] = ""
-	return out
-
-
-func get_chassis_slots(chassis_id: String) -> Array:
-	return get_chassis_def(chassis_id).get("slots", [])
-
-
-func slot_type_of(slot_id: String) -> String:
-	if slot_id.begins_with("primary"):
-		return "primary"
-	if slot_id.begins_with("support"):
-		return "support"
-	if slot_id.begins_with("bay"):
-		return "bay"
-	if slot_id.begins_with("sensor"):
-		return "sensor"
+func role_from_def(def: Dictionary) -> String:
+	if bool(def.get("can_scan", false)):
+		return "scout"
+	if bool(def.get("can_mine", false)):
+		return "mining"
+	if bool(def.get("can_salvage", false)):
+		return "salvage"
+	if bool(def.get("can_explore", false)):
+		return "combat_shuttle"
+	if bool(def.get("boarding", false)):
+		return "passenger"
+	if bool(def.get("can_haul_ore", false)) and not bool(def.get("can_haul_scrap", false)):
+		return "ore_hauler"
+	if bool(def.get("can_haul_ore", false)) or bool(def.get("can_haul_scrap", false)):
+		return "cargo"
+	if bool(def.get("combat", false)):
+		return "combat"
 	return ""
 
 
-func module_fits_slot(module_id: String, slot_id: String) -> bool:
-	var def := get_module_def(module_id)
-	if def.is_empty():
-		return false
-	var want := slot_type_of(slot_id)
-	var types: Array = def.get("slot_types", [])
-	return want in types
+func get_craft_role(craft_id: String) -> String:
+	craft_id = normalize_craft_id(craft_id)
+	var def := get_strike_def(craft_id)
+	var role := str(def.get("role", ""))
+	if role != "":
+		return role
+	return role_from_def(def)
 
 
-func caps_from_loadout(loadout) -> Dictionary:
-	var caps := {
-		"can_mine": false,
-		"can_salvage": false,
-		"can_build": false,
-		"can_haul_ore": false,
-		"can_haul_scrap": false,
-		"can_explore": false,
-		"boarding": false,
-		"combat": false,
-		"passenger_capacity": 0,
-		"cargo": 0.0,
-		"damage": 0.0,
-		"range": 0.0,
-	}
-	if typeof(loadout) != TYPE_DICTIONARY:
-		return caps
-	for slot_id in loadout.keys():
-		var module_id := str(loadout[slot_id])
-		if module_id == "":
-			continue
-		var def := get_module_def(module_id)
-		if def.is_empty():
-			continue
-		var mod_caps: Dictionary = def.get("caps", {})
-		for key in mod_caps.keys():
-			if typeof(mod_caps[key]) == TYPE_BOOL:
-				caps[key] = bool(caps.get(key, false)) or bool(mod_caps[key])
-		caps["passenger_capacity"] = int(caps["passenger_capacity"]) + int(def.get("passenger_capacity", 0))
-		caps["cargo"] = float(caps["cargo"]) + float(def.get("cargo", 0.0))
-		caps["damage"] = float(caps["damage"]) + float(def.get("damage", 0.0))
-		caps["range"] = maxf(float(caps["range"]), float(def.get("range", 0.0)))
-	return caps
+func get_entry_role(entry: Dictionary) -> String:
+	if entry.is_empty():
+		return ""
+	return get_craft_role(str(entry.get("craft_id", "")))
 
 
-func get_entry_caps(entry: Dictionary) -> Dictionary:
-	return caps_from_loadout(entry.get("loadout", {}))
+func get_passenger_capacity(craft_id: String) -> int:
+	return maxi(int(get_strike_def(craft_id).get("passenger_capacity", 0)), 0)
 
 
-func get_uid_caps(uid: String) -> Dictionary:
-	return get_entry_caps(get_craft_entry(uid))
+func get_passenger_capacity_for_entry(entry: Dictionary) -> int:
+	return get_passenger_capacity(str(entry.get("craft_id", "")))
 
 
-func get_loadout_caps_for_craft(craft_id: String, loadout = null) -> Dictionary:
+func is_boarding_craft(craft_id: String) -> bool:
+	return bool(get_strike_def(craft_id).get("boarding", false))
+
+
+func is_boarding_entry(entry: Dictionary) -> bool:
+	return is_boarding_craft(str(entry.get("craft_id", "")))
+
+
+func is_cargo_craft(craft_id: String) -> bool:
+	var def := get_strike_def(craft_id)
+	return bool(def.get("can_haul_ore", false)) or bool(def.get("can_haul_scrap", false))
+
+
+func can_explore_craft(craft_id: String) -> bool:
+	return bool(get_strike_def(craft_id).get("can_explore", false))
+
+
+func can_scan_craft(craft_id: String) -> bool:
+	return bool(get_strike_def(craft_id).get("can_scan", false))
+
+
+func can_haul_ore_craft(craft_id: String) -> bool:
+	return bool(get_strike_def(craft_id).get("can_haul_ore", false))
+
+
+func can_haul_scrap_craft(craft_id: String) -> bool:
+	return bool(get_strike_def(craft_id).get("can_haul_scrap", false))
+
+
+func _craft_id_from_modular_save(chassis: String, loadout) -> String:
 	if typeof(loadout) == TYPE_DICTIONARY:
-		return caps_from_loadout(loadout)
-	if LEGACY_LOADOUTS.has(craft_id):
-		return caps_from_loadout(LEGACY_LOADOUTS[craft_id].get("loadout", {}))
-	return caps_from_loadout({})
+		var role_mod := str(loadout.get("role", ""))
+		if _ROLE_MODULE_TO_CRAFT.has(role_mod):
+			return _ROLE_MODULE_TO_CRAFT[role_mod]
+	match chassis:
+		"small":
+			return "interceptor"
+		"large":
+			return "cargo_hauler"
+		_:
+			return "cargo_hauler"
 
+
+func _resolve_craft_id(item: Dictionary) -> String:
+	var raw := str(item.get("craft_id", ""))
+	var chassis := str(item.get("chassis_id", ""))
+	if raw in _CHASSIS_IDS:
+		return _craft_id_from_modular_save(raw, item.get("loadout", null))
+	if chassis in _CHASSIS_IDS:
+		return _craft_id_from_modular_save(chassis, item.get("loadout", null))
+	var normalized := normalize_craft_id(raw)
+	if not get_strike_def(normalized).is_empty():
+		return normalized
+	if chassis != "":
+		normalized = normalize_craft_id(chassis)
+		if not get_strike_def(normalized).is_empty():
+			return normalized
+	return "cargo_hauler"
 
 func has_pilot(uid: String) -> bool:
 	var entry := get_craft_entry(uid)
@@ -513,56 +607,6 @@ func get_hangar_crew_total() -> int:
 	return total
 
 
-func get_passenger_capacity_for_entry(entry: Dictionary) -> int:
-	return maxi(int(get_entry_caps(entry).get("passenger_capacity", 0)), 0)
-
-
-func get_passenger_capacity(craft_id: String) -> int:
-	return maxi(int(get_loadout_caps_for_craft(craft_id).get("passenger_capacity", 0)), 0)
-
-
-func get_craft_role(craft_id: String) -> String:
-	var caps := get_loadout_caps_for_craft(craft_id)
-	if bool(caps.get("can_mine", false)):
-		return "mining"
-	if bool(caps.get("can_salvage", false)):
-		return "salvage"
-	if bool(caps.get("can_explore", false)):
-		return "expedition"
-	if bool(caps.get("boarding", false)):
-		return "transport"
-	if bool(caps.get("can_haul_ore", false)) or bool(caps.get("can_haul_scrap", false)):
-		return "cargo"
-	if bool(caps.get("combat", false)):
-		return "combat"
-	return str(get_strike_def(craft_id).get("role", ""))
-
-
-func is_boarding_craft(craft_id: String) -> bool:
-	return bool(get_loadout_caps_for_craft(craft_id).get("boarding", false))
-
-
-func is_boarding_entry(entry: Dictionary) -> bool:
-	return bool(get_entry_caps(entry).get("boarding", false))
-
-
-func is_cargo_craft(craft_id: String) -> bool:
-	var caps := get_loadout_caps_for_craft(craft_id)
-	return bool(caps.get("can_haul_ore", false)) or bool(caps.get("can_haul_scrap", false))
-
-
-func can_explore_craft(craft_id: String) -> bool:
-	return bool(get_loadout_caps_for_craft(craft_id).get("can_explore", false))
-
-
-func can_haul_ore_craft(craft_id: String) -> bool:
-	return bool(get_loadout_caps_for_craft(craft_id).get("can_haul_ore", false))
-
-
-func can_haul_scrap_craft(craft_id: String) -> bool:
-	return bool(get_loadout_caps_for_craft(craft_id).get("can_haul_scrap", false))
-
-
 func get_passenger_reserved_total() -> int:
 	var total := 0
 	for entry in hangar_roster:
@@ -585,96 +629,130 @@ func get_passenger_reserved_total() -> int:
 	return total
 
 
-func can_assign_crew(uid: String) -> bool:
+func get_required_crew(craft_id: String) -> int:
+	return get_crew_capacity(craft_id)
+
+
+func crew_deficit_for(uid: String) -> int:
+	var entry := get_craft_entry(uid)
+	if entry.is_empty():
+		return 0
+	var cap := get_required_crew(str(entry.get("craft_id", "")))
+	return maxi(cap - int(entry.get("crew", 0)), 0)
+
+
+func can_auto_fill_crew(uid: String) -> bool:
 	var entry := get_craft_entry(uid)
 	if entry.is_empty() or not bool(entry.get("assembled", false)):
 		return false
-	if str(entry.get("bay", "")) != BAY_MAIN:
-		return false
 	if str(entry.get("op", "")) != "":
 		return false
-	var craft_id := str(entry.get("craft_id", ""))
-	if int(entry.get("crew", 0)) >= get_crew_capacity(craft_id):
+	var deficit := crew_deficit_for(uid)
+	if deficit <= 0:
+		return true
+	return CrewData.get_unassigned() >= deficit
+
+
+## Auto-seat full crew complement from the free pool. Fails if any seat can't be filled.
+func auto_fill_craft_crew(uid: String) -> bool:
+	var entry := get_craft_entry(uid)
+	if entry.is_empty() or not bool(entry.get("assembled", false)):
 		return false
-	return CrewData.get_unassigned() > 0
+	if str(entry.get("op", "")) != "":
+		return int(entry.get("crew", 0)) >= get_required_crew(str(entry.get("craft_id", "")))
+	var craft_id := str(entry.get("craft_id", ""))
+	var cap := get_required_crew(craft_id)
+	var have := int(entry.get("crew", 0))
+	if have >= cap:
+		return true
+	if CrewData.get_unassigned() < (cap - have):
+		return false
+	while have < cap:
+		if not CrewData.assign_to_hangar_craft(uid):
+			break
+		have += 1
+		_set_craft_crew(uid, have)
+	_changed()
+	return have >= cap
 
 
-func can_unassign_crew(uid: String) -> bool:
+## Fill passenger seats from the free pool (used when dispatching passenger transports to teams).
+func auto_fill_craft_passengers(uid: String) -> int:
+	var entry := get_craft_entry(uid)
+	if entry.is_empty() or not bool(entry.get("assembled", false)):
+		return 0
+	var craft_id := normalize_craft_id(str(entry.get("craft_id", "")))
+	var pax_cap := get_passenger_capacity(craft_id)
+	if pax_cap <= 0:
+		return 0
+	var have := int(entry.get("passengers", 0))
+	var filled := 0
+	while have < pax_cap and CrewData.get_unassigned() > 0:
+		if not CrewData.assign_passenger_to_craft(uid):
+			break
+		have += 1
+		filled += 1
+		_set_craft_fields(uid, {"passengers": have})
+	if filled > 0:
+		_changed()
+	return filled
+
+
+## Return hangar crew + passengers to the free pool (idle craft hold no seats).
+func release_craft_crew(uid: String) -> void:
 	var entry := get_craft_entry(uid)
 	if entry.is_empty():
-		return false
-	if str(entry.get("bay", "")) != BAY_MAIN:
-		return false
-	if str(entry.get("op", "")) != "":
-		return false
-	return int(entry.get("crew", 0)) > 0
+		return
+	var changed := false
+	while int(entry.get("crew", 0)) > 0:
+		if not CrewData.unassign_from_hangar_craft(uid):
+			break
+		_set_craft_crew(uid, int(entry.get("crew", 0)) - 1)
+		entry = get_craft_entry(uid)
+		changed = true
+	while int(entry.get("passengers", 0)) > 0:
+		if not CrewData.unassign_passenger_from_craft(uid):
+			break
+		_set_craft_fields(uid, {"passengers": maxi(int(entry.get("passengers", 0)) - 1, 0)})
+		entry = get_craft_entry(uid)
+		changed = true
+	if changed:
+		_changed()
+
+
+## Legacy player APIs — kept for save/compat; assignment is automatic now.
+func can_assign_crew(_uid: String) -> bool:
+	return false
+
+
+func can_unassign_crew(_uid: String) -> bool:
+	return false
 
 
 func assign_crew_to_craft(uid: String) -> bool:
-	if not can_assign_crew(uid):
-		return false
-	if not CrewData.assign_to_hangar_craft(uid):
-		return false
-	_set_craft_crew(uid, int(get_craft_entry(uid).get("crew", 0)) + 1)
-	_changed()
-	return true
+	return auto_fill_craft_crew(uid)
 
 
 func unassign_crew_from_craft(uid: String) -> bool:
-	if not can_unassign_crew(uid):
-		return false
-	if not CrewData.unassign_from_hangar_craft(uid):
-		return false
-	_set_craft_crew(uid, int(get_craft_entry(uid).get("crew", 0)) - 1)
-	_changed()
+	release_craft_crew(uid)
 	return true
 
 
-func can_assign_passenger(uid: String) -> bool:
-	var entry := get_craft_entry(uid)
-	if entry.is_empty() or not bool(entry.get("assembled", false)):
-		return false
-	if str(entry.get("bay", "")) != BAY_MAIN:
-		return false
-	if str(entry.get("op", "")) != "":
-		return false
-	if not is_boarding_entry(entry):
-		return false
-	var cap := get_passenger_capacity_for_entry(entry)
-	if int(entry.get("passengers", 0)) >= cap:
-		return false
-	return CrewData.get_unassigned() > 0
+func can_assign_passenger(_uid: String) -> bool:
+	return false
 
 
-func can_unassign_passenger(uid: String) -> bool:
-	var entry := get_craft_entry(uid)
-	if entry.is_empty():
-		return false
-	if str(entry.get("bay", "")) != BAY_MAIN:
-		return false
-	if str(entry.get("op", "")) != "":
-		return false
-	if not is_boarding_entry(entry):
-		return false
-	return int(entry.get("passengers", 0)) > 0
+func can_unassign_passenger(_uid: String) -> bool:
+	return false
 
 
-func assign_passenger_to_craft(uid: String) -> bool:
-	if not can_assign_passenger(uid):
-		return false
-	if not CrewData.assign_passenger_to_craft(uid):
-		return false
-	var entry := get_craft_entry(uid)
-	var next_pax := int(entry.get("passengers", 0)) + 1
-	_set_craft_fields(uid, {
-		"passengers": clampi(next_pax, 0, get_passenger_capacity_for_entry(entry)),
-	})
-	_changed()
-	return true
+func assign_passenger_to_craft(_uid: String) -> bool:
+	return false
 
 
 func unassign_passenger_from_craft(uid: String) -> bool:
-	if not can_unassign_passenger(uid):
+	var entry := get_craft_entry(uid)
+	if entry.is_empty() or int(entry.get("passengers", 0)) <= 0:
 		return false
 	if not CrewData.unassign_passenger_from_craft(uid):
 		return false
@@ -688,7 +766,7 @@ func get_stored(craft_id: String) -> int:
 	for entry in hangar_roster:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
-		if str(entry.get("craft_id", "")) == craft_id or str(entry.get("chassis_id", "")) == craft_id:
+		if normalize_craft_id(str(entry.get("craft_id", ""))) == normalize_craft_id(craft_id):
 			total += 1
 	return total
 
@@ -698,8 +776,8 @@ func get_stored_slots_used() -> int:
 	for entry in hangar_roster:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
-		var chassis := str(entry.get("chassis_id", entry.get("craft_id", "")))
-		total += int(get_chassis_def(chassis).get("hangar_cost", get_strike_def(chassis).get("hangar_cost", 1)))
+		var cid := normalize_craft_id(str(entry.get("craft_id", "")))
+		total += int(get_strike_def(cid).get("hangar_cost", 1))
 	return total
 
 
@@ -733,26 +811,28 @@ func get_assemble_progress(uid: String) -> float:
 	return clampf(float(entry.get("assemble_elapsed", 0.0)) / total, 0.0, 1.0)
 
 
-func can_build(chassis_id: String) -> bool:
-	if not CHASSIS_DEFS.has(chassis_id):
+func can_build(craft_id: String) -> bool:
+	craft_id = normalize_craft_id(craft_id)
+	var def := get_strike_def(craft_id)
+	if def.is_empty() or craft_id == "enemy":
 		return false
 	if not ShipData.has_function("hangar"):
 		return false
-	if get_hangar_free() < int(get_chassis_def(chassis_id).get("hangar_cost", 1)):
+	if get_hangar_free() < int(def.get("hangar_cost", 1)):
 		return false
 	if get_bay_free(BAY_STORAGE) <= 0 and get_bay_free(BAY_MAIN) <= 0:
 		return false
-	return ShipData.get_resources() + 0.001 >= get_resource_cost(chassis_id)
+	return ShipData.get_resources() + 0.001 >= get_resource_cost(craft_id)
 
 
-func build_craft(chassis_id: String) -> String:
-	if not can_build(chassis_id):
+func build_craft(craft_id: String) -> String:
+	if not can_build(craft_id):
 		return ""
-	var cost := get_resource_cost(chassis_id)
+	var cost := get_resource_cost(craft_id)
 	if cost > 0.0:
 		ShipData.spend_resources(cost)
 	var bay := BAY_MAIN if get_bay_free(BAY_MAIN) > 0 else BAY_STORAGE
-	var uid := _add_chassis_craft(chassis_id, false, 0, 1.0, 1.0, bay, empty_loadout(chassis_id))
+	var uid := _add_hangar_craft(craft_id, false, 0, 1.0, 1.0, bay)
 	_changed()
 	return uid
 
@@ -854,11 +934,21 @@ func start_disassemble(uid: String) -> bool:
 
 
 func can_start_launch(uid: String) -> bool:
-	return _can_launch_entry(get_craft_entry(uid))
+	var entry := get_craft_entry(uid)
+	if entry.is_empty():
+		return false
+	if not can_auto_fill_crew(uid):
+		return false
+	## Probe as fully crewed — seats fill when launch actually starts.
+	var probe := entry.duplicate(true)
+	probe["crew"] = get_required_crew(str(entry.get("craft_id", "")))
+	return _can_launch_entry(probe)
 
 
 func launch_craft_uid(uid: String) -> bool:
-	if not can_start_launch(uid):
+	if not auto_fill_craft_crew(uid):
+		return false
+	if not _can_launch_entry(get_craft_entry(uid)):
 		return false
 	return _begin_craft_op(uid, OP_LAUNCH, SPACE_DOCK_SECONDS)
 
@@ -925,7 +1015,7 @@ func get_launch_block_reason(craft_id: String) -> String:
 	for entry in hangar_roster:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
-		if str(entry.get("craft_id", "")) == craft_id or str(entry.get("chassis_id", "")) == craft_id:
+		if normalize_craft_id(str(entry.get("craft_id", ""))) == normalize_craft_id(craft_id):
 			return _launch_block_reason(entry)
 	return "None stored"
 
@@ -934,43 +1024,121 @@ func can_launch_uid(uid: String) -> bool:
 	return can_start_launch(uid)
 
 
-## --- Refit (Main bay only) -------------------------------------------------
+## --- Site craft dispatch (commander berths) --------------------------------
 
-func can_refit(uid: String) -> bool:
+func preferred_craft_ids_for_site(site_kind: String) -> Array[String]:
+	match site_kind:
+		"asteroid":
+			return ["mining", "ore_hauler", "scout"]
+		"derelict", "wreck":
+			return ["salvage", "cargo_hauler", "combat_shuttle", "scout"]
+		_:
+			return []
+
+
+func is_craft_dispatched(uid: String) -> bool:
+	return site_dispatch.has(uid)
+
+
+func get_site_dispatch(uid: String) -> Dictionary:
+	return site_dispatch.get(uid, {})
+
+
+func clear_site_dispatch(uid: String) -> void:
+	site_dispatch.erase(uid)
+
+
+func find_dispatchable_craft(preferred_ids: Array) -> String:
+	## Prefer ready craft in Main, then Storage, then Launching.
+	## Crew is auto-filled on dispatch — only require enough free crew.
+	for bay in [BAY_MAIN, BAY_STORAGE, BAY_LAUNCHING]:
+		for craft_id in preferred_ids:
+			var cid := normalize_craft_id(str(craft_id))
+			for entry in get_roster_in_bay(bay):
+				if typeof(entry) != TYPE_DICTIONARY:
+					continue
+				if normalize_craft_id(str(entry.get("craft_id", ""))) != cid:
+					continue
+				var uid := str(entry.get("uid", ""))
+				if uid == "" or site_dispatch.has(uid) or team_dispatch.has(uid):
+					continue
+				if not bool(entry.get("assembled", false)):
+					continue
+				if str(entry.get("op", "")) != "":
+					continue
+				if not can_auto_fill_crew(uid):
+					continue
+				return uid
+	return ""
+
+
+func is_team_dispatched(uid: String) -> bool:
+	return team_dispatch.has(uid)
+
+
+func get_team_dispatch(uid: String) -> String:
+	return str(team_dispatch.get(uid, ""))
+
+
+func clear_team_dispatch(uid: String) -> void:
+	team_dispatch.erase(uid)
+
+
+func begin_team_dispatch(uid: String, team_uid: String) -> bool:
 	var entry := get_craft_entry(uid)
-	if entry.is_empty() or not bool(entry.get("assembled", false)):
+	if entry.is_empty() or team_uid == "":
 		return false
-	if str(entry.get("bay", "")) != BAY_MAIN:
+	if team_dispatch.has(uid) or site_dispatch.has(uid):
 		return false
-	return str(entry.get("op", "")) == ""
+	if not auto_fill_craft_crew(uid):
+		return false
+	## Passenger transports bring spare crew for on-station swaps.
+	auto_fill_craft_passengers(uid)
+	team_dispatch[uid] = team_uid
+	entry = get_craft_entry(uid)
+	var bay := str(entry.get("bay", ""))
+	var ok := false
+	if bay == BAY_LAUNCHING:
+		if str(entry.get("op", "")) == "":
+			ok = launch_craft_uid(uid)
+		else:
+			ok = true
+	elif bay == BAY_MAIN or bay == BAY_STORAGE:
+		ok = transfer_craft(uid, BAY_LAUNCHING)
+	if not ok:
+		team_dispatch.erase(uid)
+		release_craft_crew(uid)
+	return ok
 
 
-func equip_module(uid: String, slot_id: String, module_id: String) -> bool:
-	if not can_refit(uid):
-		return false
+func begin_site_dispatch(uid: String, site_uid: String, berth: int, site_kind: String) -> bool:
 	var entry := get_craft_entry(uid)
-	var chassis := str(entry.get("chassis_id", entry.get("craft_id", "")))
-	if slot_id not in get_chassis_slots(chassis):
+	if entry.is_empty():
 		return false
-	if module_id != "" and not module_fits_slot(module_id, slot_id):
+	if site_dispatch.has(uid) or team_dispatch.has(uid):
 		return false
-	var loadout: Dictionary = entry.get("loadout", {}).duplicate(true)
-	var prev := str(loadout.get(slot_id, ""))
-	if module_id != "" and not ShipData.has_module(module_id):
+	if not auto_fill_craft_crew(uid):
 		return false
-	if module_id != "":
-		if not ShipData.take_module(module_id, 1):
-			return false
-	if prev != "":
-		ShipData.add_module(prev, 1)
-	loadout[slot_id] = module_id
-	_set_craft_fields(uid, {"loadout": loadout})
-	_changed()
-	return true
-
-
-func unequip_module(uid: String, slot_id: String) -> bool:
-	return equip_module(uid, slot_id, "")
+	site_dispatch[uid] = {
+		"site_uid": site_uid,
+		"berth": berth,
+		"site_kind": site_kind,
+		"craft_id": normalize_craft_id(str(entry.get("craft_id", ""))),
+	}
+	entry = get_craft_entry(uid)
+	var bay := str(entry.get("bay", ""))
+	var ok := false
+	if bay == BAY_LAUNCHING:
+		if str(entry.get("op", "")) == "":
+			ok = launch_craft_uid(uid)
+		else:
+			ok = true
+	elif bay == BAY_MAIN or bay == BAY_STORAGE:
+		ok = transfer_craft(uid, BAY_LAUNCHING)
+	if not ok:
+		site_dispatch.erase(uid)
+		release_craft_crew(uid)
+	return ok
 
 
 ## --- Deploy / recall -------------------------------------------------------
@@ -982,9 +1150,8 @@ func _finish_launch(uid: String) -> void:
 	var crew := maxi(int(entry.get("crew", 0)), 0)
 	var maintenance := clamp_maintenance(float(entry.get("maintenance", 1.0)))
 	var supplies := clamp_supplies(float(entry.get("supplies", 1.0)))
-	var chassis_id := str(entry.get("chassis_id", entry.get("craft_id", "")))
-	var loadout: Dictionary = entry.get("loadout", {}).duplicate(true)
-	var cost := int(get_chassis_def(chassis_id).get("hangar_cost", 1))
+	var craft_id := normalize_craft_id(str(entry.get("craft_id", "")))
+	var cost := int(get_strike_def(craft_id).get("hangar_cost", 1))
 	_remove_hangar_uid(uid)
 	deployed_bodies += 1
 	deployed_slots += cost
@@ -992,11 +1159,11 @@ func _finish_launch(uid: String) -> void:
 	var spawn := ShipData.map_position
 	var facing := ShipData.map_rotation
 	var offset := Vector2.from_angle(facing + PI).rotated(randf_range(-0.45, 0.45)) * 56.0
+	var dispatch: Dictionary = site_dispatch.get(uid, {})
+	var team_uid := str(team_dispatch.get(uid, ""))
 	parked_deployed.append({
 		"uid": uid,
-		"craft_id": chassis_id,
-		"chassis_id": chassis_id,
-		"loadout": loadout,
+		"craft_id": craft_id,
 		"callsign": str(entry.get("callsign", "")),
 		"crew": crew,
 		"maintenance": maintenance,
@@ -1005,15 +1172,21 @@ func _finish_launch(uid: String) -> void:
 		"x": spawn.x + offset.x,
 		"y": spawn.y + offset.y,
 		"rotation": facing,
-		"auto_order": false,
+		"auto_order": not dispatch.is_empty() or team_uid != "",
+		"site_uid": str(dispatch.get("site_uid", "")),
+		"site_berth": int(dispatch.get("berth", -1)),
+		"site_kind": str(dispatch.get("site_kind", "")),
+		"team_uid": team_uid,
+		"team_enroute": team_uid != "",
 	})
+
 
 
 func launch_craft(craft_id: String) -> bool:
 	for entry in hangar_roster:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
-		if str(entry.get("craft_id", "")) == craft_id or str(entry.get("chassis_id", "")) == craft_id:
+		if normalize_craft_id(str(entry.get("craft_id", ""))) == normalize_craft_id(craft_id):
 			return launch_craft_uid(str(entry.get("uid", "")))
 	return false
 
@@ -1038,51 +1211,37 @@ func recall_craft(
 	maintenance: float = 1.0,
 	supplies: float = 1.0,
 	passengers: int = 0,
-	loadout = null
+	_loadout = null
 ) -> bool:
 	var block := get_recall_block_reason()
 	if block != "":
 		return false
-	var chassis_id := _migrate_craft_id(craft_id)
-	if not CHASSIS_DEFS.has(chassis_id) and LEGACY_LOADOUTS.has(craft_id):
-		chassis_id = str(LEGACY_LOADOUTS[craft_id].get("chassis", "medium"))
-	if not CHASSIS_DEFS.has(chassis_id):
-		chassis_id = "medium"
-	var cost := int(get_chassis_def(chassis_id).get("hangar_cost", 1))
+	craft_id = normalize_craft_id(_resolve_craft_id({"craft_id": craft_id, "loadout": _loadout}))
+	var cost := int(get_strike_def(craft_id).get("hangar_cost", 1))
 	deployed_bodies = maxi(deployed_bodies - 1, 0)
 	deployed_slots = maxi(deployed_slots - cost, 0)
 	var restored_crew := maxi(crew, 0)
 	var restored_maint := clamp_maintenance(maintenance)
 	var restored_supplies := clamp_supplies(supplies)
 	var restored_pax := maxi(passengers, 0)
-	var fitted: Dictionary
-	if typeof(loadout) == TYPE_DICTIONARY:
-		fitted = loadout.duplicate(true)
-	elif LEGACY_LOADOUTS.has(craft_id):
-		fitted = LEGACY_LOADOUTS[craft_id].get("loadout", {}).duplicate(true)
-	else:
-		fitted = empty_loadout(chassis_id)
 	var new_uid := uid
 	var pad := find_free_pad(BAY_LANDING)
 	if uid == "":
-		new_uid = _add_chassis_craft(chassis_id, true, restored_crew, restored_maint, restored_supplies, BAY_LANDING, fitted, pad)
+		new_uid = _add_hangar_craft(craft_id, true, restored_crew, restored_maint, restored_supplies, BAY_LANDING, pad)
 	else:
-		_restore_hangar_craft(uid, chassis_id, callsign, restored_crew, restored_maint, restored_supplies, BAY_LANDING, restored_pax, fitted, pad)
+		_restore_hangar_craft(uid, craft_id, callsign, restored_crew, restored_maint, restored_supplies, BAY_LANDING, restored_pax, pad)
 	CrewData.convert_pilots_to_hangar(new_uid, restored_crew)
+	## Park survivors/cargo people as passengers briefly, then release everyone to the pool.
 	_set_craft_fields(new_uid, {"passengers": restored_pax})
-	CrewData.cycle_craft_crew_at_mothership(new_uid, restored_crew, restored_pax)
-	var seated_pax := 0
-	var seated_pilots := 0
-	for person in CrewData.get_roster():
-		if str(person.get("craft_uid", "")) != new_uid:
-			continue
-		if str(person.get("duty", "")) == CrewData.DUTY_PASSENGER:
-			seated_pax += 1
-		elif str(person.get("duty", "")) == CrewData.DUTY_HANGAR:
-			seated_pilots += 1
+	clear_site_dispatch(new_uid if new_uid != "" else uid)
+	clear_team_dispatch(new_uid if new_uid != "" else uid)
+	## Return recalled crew to the free pool — seats refill automatically on next launch.
+	if restored_pax > 0:
+		CrewData.release_passengers_for_craft(new_uid, restored_pax)
+	release_craft_crew(new_uid)
 	_set_craft_fields(new_uid, {
-		"crew": seated_pilots,
-		"passengers": seated_pax,
+		"crew": 0,
+		"passengers": 0,
 		"bay": BAY_LANDING,
 		"pad": pad,
 		"op": OP_LAND,
@@ -1095,16 +1254,18 @@ func recall_craft(
 	return true
 
 
-func lose_deployed_craft(craft_id: String, crew: int = 0) -> void:
-	var chassis := _migrate_craft_id(craft_id)
-	if LEGACY_LOADOUTS.has(craft_id):
-		chassis = str(LEGACY_LOADOUTS[craft_id].get("chassis", chassis))
-	var cost := int(get_chassis_def(chassis).get("hangar_cost", get_strike_def(craft_id).get("hangar_cost", 1)))
+func lose_deployed_craft(craft_id: String, crew: int = 0, uid: String = "") -> void:
+	craft_id = normalize_craft_id(craft_id)
+	var cost := int(get_strike_def(craft_id).get("hangar_cost", 1))
 	deployed_bodies = maxi(deployed_bodies - 1, 0)
 	deployed_slots = maxi(deployed_slots - cost, 0)
+	if uid != "":
+		clear_site_dispatch(uid)
+		clear_team_dispatch(uid)
 	for _i in maxi(crew, 0):
 		CrewData.lose_pilot()
 	_changed()
+
 
 
 func park_deployed(entries: Array) -> void:
@@ -1127,7 +1288,7 @@ func destroy_all_undocked() -> int:
 	for entry in parked_deployed:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
-		var craft_id := str(entry.get("craft_id", entry.get("chassis_id", "")))
+		var craft_id := normalize_craft_id(str(entry.get("craft_id", "")))
 		if craft_id == "":
 			continue
 		MissionData.add_wreck_from_craft(
@@ -1149,11 +1310,13 @@ func to_save_dict() -> Dictionary:
 	return {
 		"hangar_roster": hangar_roster.duplicate(true),
 		"parked_deployed": parked_deployed.duplicate(true),
+		"site_dispatch": site_dispatch.duplicate(true),
+		"team_dispatch": team_dispatch.duplicate(true),
 		"deployed_slots": deployed_slots,
 		"deployed_bodies": deployed_bodies,
 		"craft_serial": _craft_serial,
 		"callsign_serial": _callsign_serial.duplicate(true),
-		"schema": 2,
+		"schema": 3,
 	}
 
 
@@ -1163,6 +1326,8 @@ func apply_save_dict(data: Dictionary) -> void:
 		return
 	hangar_roster.clear()
 	parked_deployed.clear()
+	site_dispatch.clear()
+	team_dispatch.clear()
 	_craft_serial = maxi(int(data.get("craft_serial", 0)), 0)
 	_callsign_serial.clear()
 	_assemble_ui_bucket = -1
@@ -1184,16 +1349,10 @@ func apply_save_dict(data: Dictionary) -> void:
 		for item in saved_parked:
 			if typeof(item) != TYPE_DICTIONARY:
 				continue
-			var craft_id := str(item.get("craft_id", item.get("chassis_id", "")))
-			var chassis := _resolve_chassis(craft_id, item)
-			var loadout = item.get("loadout", null)
-			if typeof(loadout) != TYPE_DICTIONARY:
-				loadout = _default_loadout_for_legacy(craft_id, chassis)
+			var craft_id := _resolve_craft_id(item)
 			parked_deployed.append({
 				"uid": str(item.get("uid", _next_uid())),
-				"craft_id": chassis,
-				"chassis_id": chassis,
-				"loadout": loadout,
+				"craft_id": craft_id,
 				"callsign": str(item.get("callsign", "")),
 				"crew": maxi(int(item.get("crew", 0)), 0),
 				"maintenance": clamp_maintenance(float(item.get("maintenance", 1.0))),
@@ -1203,10 +1362,31 @@ func apply_save_dict(data: Dictionary) -> void:
 				"y": float(item.get("y", 0.0)),
 				"rotation": float(item.get("rotation", 0.0)),
 				"auto_order": bool(item.get("auto_order", false)),
+				"site_uid": str(item.get("site_uid", "")),
+				"site_berth": int(item.get("site_berth", -1)),
+				"site_kind": str(item.get("site_kind", "")),
+				"team_uid": str(item.get("team_uid", "")),
+				"team_enroute": bool(item.get("team_enroute", false)),
 			})
 
 	deployed_slots = maxi(int(data.get("deployed_slots", 0)), 0)
 	deployed_bodies = maxi(int(data.get("deployed_bodies", 0)), 0)
+	var saved_dispatch = data.get("site_dispatch", null)
+	if typeof(saved_dispatch) == TYPE_DICTIONARY:
+		for key in saved_dispatch.keys():
+			var item = saved_dispatch[key]
+			if typeof(item) != TYPE_DICTIONARY:
+				continue
+			site_dispatch[str(key)] = {
+				"site_uid": str(item.get("site_uid", "")),
+				"berth": int(item.get("berth", -1)),
+				"site_kind": str(item.get("site_kind", "")),
+				"craft_id": normalize_craft_id(str(item.get("craft_id", ""))),
+			}
+	var saved_team_dispatch = data.get("team_dispatch", null)
+	if typeof(saved_team_dispatch) == TYPE_DICTIONARY:
+		for key in saved_team_dispatch.keys():
+			team_dispatch[str(key)] = str(saved_team_dispatch[key])
 	if hangar_roster.is_empty() and parked_deployed.is_empty() and deployed_bodies <= 0:
 		reset_for_new_game()
 		return
@@ -1214,18 +1394,17 @@ func apply_save_dict(data: Dictionary) -> void:
 
 
 func _append_migrated_roster_item(item: Dictionary) -> void:
-	var raw_id := str(item.get("chassis_id", item.get("craft_id", "")))
-	var chassis := _resolve_chassis(raw_id, item)
-	if not CHASSIS_DEFS.has(chassis):
+	var craft_id := _resolve_craft_id(item)
+	if get_strike_def(craft_id).is_empty():
 		return
 	var uid := str(item.get("uid", ""))
 	if uid == "":
 		uid = _next_uid()
 	var callsign := str(item.get("callsign", ""))
 	if callsign == "":
-		callsign = _next_callsign(chassis)
+		callsign = _next_callsign(craft_id)
 	var assembled := bool(item.get("assembled", true))
-	var assemble_time := maxf(float(item.get("assemble_time", get_build_time(chassis))), 1.0)
+	var assemble_time := maxf(float(item.get("assemble_time", get_build_time(craft_id))), 1.0)
 	var assemble_elapsed := clampf(float(item.get("assemble_elapsed", 0.0)), 0.0, assemble_time)
 	if assembled:
 		assemble_elapsed = assemble_time
@@ -1233,26 +1412,20 @@ func _append_migrated_roster_item(item: Dictionary) -> void:
 	var op := str(item.get("op", ""))
 	if op == OP_DOCK or op == OP_STOW:
 		op = OP_TRANSFER
-	var loadout = item.get("loadout", null)
-	if typeof(loadout) != TYPE_DICTIONARY:
-		loadout = _default_loadout_for_legacy(raw_id, chassis)
 	var pad := int(item.get("pad", item.get("dock_slot", -1)))
 	if bay == BAY_LAUNCHING or bay == BAY_LANDING:
 		if pad < 0:
 			pad = find_free_pad(bay)
 	else:
 		pad = -1
-	var caps := caps_from_loadout(loadout)
 	hangar_roster.append({
 		"uid": uid,
-		"craft_id": chassis,
-		"chassis_id": chassis,
-		"loadout": loadout,
+		"craft_id": craft_id,
 		"callsign": callsign,
-		"crew": clampi(int(item.get("crew", 0)), 0, get_crew_capacity(chassis)),
+		"crew": clampi(int(item.get("crew", 0)), 0, get_crew_capacity(craft_id)),
 		"maintenance": clamp_maintenance(float(item.get("maintenance", 1.0))),
 		"supplies": clamp_supplies(float(item.get("supplies", 1.0))),
-		"passengers": clampi(int(item.get("passengers", 0)), 0, int(caps.get("passenger_capacity", 0))),
+		"passengers": clampi(int(item.get("passengers", 0)), 0, get_passenger_capacity(craft_id)),
 		"bay": bay,
 		"pad": pad,
 		"dock_slot": pad,
@@ -1266,6 +1439,7 @@ func _append_migrated_roster_item(item: Dictionary) -> void:
 		"assemble_elapsed": assemble_elapsed,
 		"assemble_time": assemble_time,
 	})
+
 
 
 func _migrate_bay(bay: String, op: String) -> String:
@@ -1282,23 +1456,6 @@ func _migrate_bay(bay: String, op: String) -> String:
 			return BAY_MAIN
 
 
-func _resolve_chassis(craft_id: String, item: Dictionary = {}) -> String:
-	var chassis := str(item.get("chassis_id", ""))
-	if CHASSIS_DEFS.has(chassis):
-		return chassis
-	craft_id = _migrate_craft_id(craft_id)
-	if CHASSIS_DEFS.has(craft_id):
-		return craft_id
-	if LEGACY_LOADOUTS.has(craft_id):
-		return str(LEGACY_LOADOUTS[craft_id].get("chassis", "medium"))
-	return "medium"
-
-
-func _default_loadout_for_legacy(craft_id: String, chassis: String) -> Dictionary:
-	craft_id = _migrate_craft_id(craft_id)
-	if LEGACY_LOADOUTS.has(craft_id):
-		return LEGACY_LOADOUTS[craft_id].get("loadout", {}).duplicate(true)
-	return empty_loadout(chassis)
 
 
 func _can_launch_entry(entry: Dictionary) -> bool:
@@ -1308,7 +1465,8 @@ func _can_launch_entry(entry: Dictionary) -> bool:
 		return false
 	if str(entry.get("op", "")) != "":
 		return false
-	if int(entry.get("crew", 0)) < PILOT_REQUIRED:
+	var craft_id := str(entry.get("craft_id", ""))
+	if int(entry.get("crew", 0)) < get_required_crew(craft_id):
 		return false
 	if str(entry.get("bay", "")) != BAY_LAUNCHING:
 		return false
@@ -1330,8 +1488,12 @@ func _launch_block_reason(entry: Dictionary) -> String:
 		return "Launching %.0fs" % ceilf(get_craft_op_remaining(str(entry.get("uid", ""))))
 	if op != "":
 		return "Busy %.0fs" % ceilf(get_craft_op_remaining(str(entry.get("uid", ""))))
-	if int(entry.get("crew", 0)) < PILOT_REQUIRED:
-		return "Needs pilot"
+	var uid := str(entry.get("uid", ""))
+	var craft_id := str(entry.get("craft_id", ""))
+	var need := get_required_crew(craft_id)
+	var have := int(entry.get("crew", 0))
+	if have < need and (uid == "" or not can_auto_fill_crew(uid)):
+		return "Needs %d crew" % (need - have)
 	if str(entry.get("bay", "")) != BAY_LAUNCHING:
 		return "Move to Launching"
 	if not ShipData.has_function("docking"):
@@ -1341,48 +1503,29 @@ func _launch_block_reason(entry: Dictionary) -> String:
 	return ""
 
 
+
 func _add_hangar_craft(
 	craft_id: String,
 	assembled: bool,
 	crew: int,
 	maintenance: float = 1.0,
 	supplies: float = 1.0,
-	bay: String = BAY_MAIN
-) -> String:
-	var chassis := _resolve_chassis(craft_id)
-	var loadout := _default_loadout_for_legacy(craft_id, chassis)
-	return _add_chassis_craft(chassis, assembled, crew, maintenance, supplies, bay, loadout)
-
-
-func _add_chassis_craft(
-	chassis_id: String,
-	assembled: bool,
-	crew: int,
-	maintenance: float = 1.0,
-	supplies: float = 1.0,
 	bay: String = BAY_MAIN,
-	loadout: Dictionary = {},
 	pad: int = -1
 ) -> String:
-	chassis_id = _migrate_craft_id(chassis_id)
-	if not CHASSIS_DEFS.has(chassis_id):
-		chassis_id = "medium"
-	var fitted := loadout.duplicate(true) if not loadout.is_empty() else empty_loadout(chassis_id)
-	for slot_id in get_chassis_slots(chassis_id):
-		if not fitted.has(slot_id):
-			fitted[slot_id] = ""
+	craft_id = normalize_craft_id(craft_id)
+	if get_strike_def(craft_id).is_empty():
+		craft_id = "cargo_hauler"
 	var uid := _next_uid()
-	var callsign := _next_callsign(chassis_id)
-	var assemble_time := get_build_time(chassis_id)
+	var callsign := _next_callsign(craft_id)
+	var assemble_time := get_build_time(craft_id)
 	if (bay == BAY_LAUNCHING or bay == BAY_LANDING) and pad < 0:
 		pad = find_free_pad(bay)
 	hangar_roster.append({
 		"uid": uid,
-		"craft_id": chassis_id,
-		"chassis_id": chassis_id,
-		"loadout": fitted,
+		"craft_id": craft_id,
 		"callsign": callsign,
-		"crew": clampi(crew, 0, get_crew_capacity(chassis_id)),
+		"crew": clampi(crew, 0, get_crew_capacity(craft_id)),
 		"maintenance": clamp_maintenance(maintenance if assembled else 1.0),
 		"supplies": clamp_supplies(supplies if assembled else 1.0),
 		"passengers": 0,
@@ -1401,7 +1544,6 @@ func _add_chassis_craft(
 	})
 	return uid
 
-
 func _restore_hangar_craft(
 	uid: String,
 	craft_id: String,
@@ -1411,27 +1553,22 @@ func _restore_hangar_craft(
 	supplies: float = 1.0,
 	bay: String = BAY_MAIN,
 	passengers: int = 0,
-	loadout: Dictionary = {},
 	pad: int = -1
 ) -> void:
-	var chassis := _resolve_chassis(craft_id)
+	craft_id = normalize_craft_id(craft_id)
 	if callsign == "":
-		callsign = _next_callsign(chassis)
-	var fitted := loadout.duplicate(true) if not loadout.is_empty() else empty_loadout(chassis)
-	var assemble_time := get_build_time(chassis)
-	var caps := caps_from_loadout(fitted)
+		callsign = _next_callsign(craft_id)
+	var assemble_time := get_build_time(craft_id)
 	if (bay == BAY_LAUNCHING or bay == BAY_LANDING) and pad < 0:
 		pad = find_free_pad(bay)
 	hangar_roster.append({
 		"uid": uid,
-		"craft_id": chassis,
-		"chassis_id": chassis,
-		"loadout": fitted,
+		"craft_id": craft_id,
 		"callsign": callsign,
-		"crew": clampi(crew, 0, get_crew_capacity(chassis)),
+		"crew": clampi(crew, 0, get_crew_capacity(craft_id)),
 		"maintenance": clamp_maintenance(maintenance),
 		"supplies": clamp_supplies(supplies),
-		"passengers": clampi(passengers, 0, int(caps.get("passenger_capacity", 0))),
+		"passengers": clampi(passengers, 0, get_passenger_capacity(craft_id)),
 		"bay": bay,
 		"pad": pad,
 		"dock_slot": pad,
@@ -1445,6 +1582,7 @@ func _restore_hangar_craft(
 		"assemble_elapsed": assemble_time,
 		"assemble_time": assemble_time,
 	})
+
 
 
 func _set_craft_crew(uid: String, crew: int) -> void:
@@ -1562,12 +1700,18 @@ func _tick_bay_ops(delta: float) -> void:
 					entry["op_target_pad"] = -1
 					entry["op_target_slot"] = -1
 					hangar_roster[i] = entry
-					## Auto-queue launch when a piloted craft arrives in Launching.
-					if to_bay == BAY_LAUNCHING and _can_launch_entry(entry):
-						entry["op"] = OP_LAUNCH
-						entry["op_elapsed"] = 0.0
-						entry["op_duration"] = SPACE_DOCK_SECONDS
-						hangar_roster[i] = entry
+					## Auto-queue launch when a dispatched / fully-crewed craft arrives in Launching.
+					if to_bay == BAY_LAUNCHING:
+						if team_dispatch.has(uid) or site_dispatch.has(uid):
+							auto_fill_craft_crew(uid)
+							entry = get_craft_entry(uid)
+							if not entry.is_empty():
+								hangar_roster[i] = entry
+						if not entry.is_empty() and _can_launch_entry(entry):
+							entry["op"] = OP_LAUNCH
+							entry["op_elapsed"] = 0.0
+							entry["op_duration"] = SPACE_DOCK_SECONDS
+							hangar_roster[i] = entry
 			OP_LAND:
 				entry["bay"] = BAY_LANDING
 				var land_pad := int(entry.get("op_target_pad", entry.get("pad", -1)))
@@ -1579,6 +1723,8 @@ func _tick_bay_ops(delta: float) -> void:
 				entry["op_elapsed"] = 0.0
 				entry["op_duration"] = 0.0
 				hangar_roster[i] = entry
+				## Idle hangar craft hold no crew — pool refills on next launch.
+				release_craft_crew(uid)
 			OP_RESUPPLY:
 				entry["supplies"] = 1.0
 				entry["op"] = ""
@@ -1586,14 +1732,8 @@ func _tick_bay_ops(delta: float) -> void:
 				entry["op_duration"] = 0.0
 				hangar_roster[i] = entry
 			OP_DISASSEMBLE:
-				var chassis := str(entry.get("chassis_id", entry.get("craft_id", "")))
-				var refund := float(get_chassis_def(chassis).get("resource_cost", 0.0)) * SALVAGE_RATIO
-				## Return fitted modules to inventory.
-				var loadout: Dictionary = entry.get("loadout", {})
-				for slot_id in loadout.keys():
-					var module_id := str(loadout[slot_id])
-					if module_id != "":
-						ShipData.add_module(module_id, 1)
+				var cid := normalize_craft_id(str(entry.get("craft_id", "")))
+				var refund := float(get_strike_def(cid).get("resource_cost", 0.0)) * SALVAGE_RATIO
 				_remove_hangar_uid(uid)
 				CrewData.crew_changed.emit()
 				if refund > 0.0:
@@ -1670,21 +1810,6 @@ func _remove_hangar_uid(uid: String) -> void:
 			return
 
 
-func _migrate_craft_id(craft_id: String) -> String:
-	match craft_id:
-		"rescue", "shuttle", "transport":
-			return "transport" if LEGACY_LOADOUTS.has("transport") else craft_id
-		"cargo_shuttle", "miner", "recycler":
-			return "cargo"
-		_:
-			return craft_id
-
-
-func _consume_loadout_modules(loadout: Dictionary) -> void:
-	for slot_id in loadout.keys():
-		var module_id := str(loadout[slot_id])
-		if module_id != "":
-			ShipData.take_module(module_id, 1)
 
 
 func _next_uid() -> String:
@@ -1692,11 +1817,11 @@ func _next_uid() -> String:
 	return "craft_%d" % _craft_serial
 
 
-func _next_callsign(chassis_id: String) -> String:
-	var next := int(_callsign_serial.get(chassis_id, 0)) + 1
-	_callsign_serial[chassis_id] = next
-	var base := str(get_chassis_def(chassis_id).get("name", chassis_id.capitalize()))
-	base = base.replace(" Chassis", "")
+func _next_callsign(craft_id: String) -> String:
+	craft_id = normalize_craft_id(craft_id)
+	var next := int(_callsign_serial.get(craft_id, 0)) + 1
+	_callsign_serial[craft_id] = next
+	var base := str(get_strike_def(craft_id).get("name", craft_id.capitalize()))
 	return "%s-%02d" % [base, next]
 
 

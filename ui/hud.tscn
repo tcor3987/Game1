@@ -133,21 +133,28 @@ custom_minimum_size = Vector2(34, 34)
 layout_mode = 2
 toggle_mode = true
 button_pressed = true
-tooltip_text = "Green — work shifts 4h"
+tooltip_text = "Green — work / sleep / fun 4h"
 
 [node name="ModeYellowButton" type="Button" parent="Root/TopBar/Margin/BarRow/ModeBox/ModeMargin/ModeButtons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(34, 34)
 layout_mode = 2
 toggle_mode = true
-tooltip_text = "Yellow — work shifts 8h"
+tooltip_text = "Yellow — work 8h · sleep / fun 4h"
+
+[node name="ModeOrangeButton" type="Button" parent="Root/TopBar/Margin/BarRow/ModeBox/ModeMargin/ModeButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+toggle_mode = true
+tooltip_text = "Orange — work 12h · sleep 4h · fun 2h"
 
 [node name="ModeRedButton" type="Button" parent="Root/TopBar/Margin/BarRow/ModeBox/ModeMargin/ModeButtons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(34, 34)
 layout_mode = 2
 toggle_mode = true
-tooltip_text = "Red — cancel rest, force all mothership crew to work"
+tooltip_text = "Red — force all crew to work; no sleep or fun"
 
 [node name="ViewHost" type="Control" parent="Root"]
 unique_name_in_owner = true
@@ -173,6 +180,7 @@ text = "Esc opens the game menu"
 
 [connection signal="pressed" from="Root/TopBar/Margin/BarRow/ModeBox/ModeMargin/ModeButtons/ModeGreenButton" to="." method="_on_mode_green_pressed"]
 [connection signal="pressed" from="Root/TopBar/Margin/BarRow/ModeBox/ModeMargin/ModeButtons/ModeYellowButton" to="." method="_on_mode_yellow_pressed"]
+[connection signal="pressed" from="Root/TopBar/Margin/BarRow/ModeBox/ModeMargin/ModeButtons/ModeOrangeButton" to="." method="_on_mode_orange_pressed"]
 [connection signal="pressed" from="Root/TopBar/Margin/BarRow/ModeBox/ModeMargin/ModeButtons/ModeRedButton" to="." method="_on_mode_red_pressed"]
 [connection signal="toggled" from="Root/TopBar/Margin/BarRow/Buttons/OverviewButton" to="." method="_on_overview_toggled"]
 [connection signal="toggled" from="Root/TopBar/Margin/BarRow/Buttons/MapButton" to="." method="_on_map_toggled"]

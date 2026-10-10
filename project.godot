@@ -26,6 +26,7 @@ GameTime="*res://autoload/game_time.gd"
 CrewData="*res://autoload/crew_data.gd"
 FleetData="*res://autoload/fleet_data.gd"
 MissionData="*res://autoload/mission_data.gd"
+ControlTeamData="*res://autoload/control_team_data.gd"
 
 [blazium]
 

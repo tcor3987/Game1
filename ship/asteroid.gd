@@ -1,6 +1,6 @@
 extends CharacterBody2D
 
-## Asteroid site. Station crew to mine vein → stockpile, then transfer to cargo / mining craft.
+## Asteroid cluster site. Station crew / mining teams work the aggregate vein.
 
 signal ore_changed(remaining: float)
 signal selected_changed(is_selected: bool)
@@ -8,15 +8,17 @@ signal explored_changed(explored: bool)
 signal people_changed(count: int)
 
 @export var max_ore: float = 5000.0
-@export var radius: float = 48.0
+@export var radius: float = 56.0
+@export var placement_radius: float = 100.0
 @export var board_range: float = 110.0
 @export var explore_base_seconds: float = 6.0
 @export var stockpile_capacity: float = 200.0
 @export var people_capacity: int = 12
 @export var mine_rate_per_crew: float = 2.0
+@export var rock_count: int = 5
 
 var craft_id: String = "asteroid"
-var callsign: String = "Asteroid"
+var callsign: String = "Asteroid Cluster"
 ## Unmined deposit.
 var ore_vein: float = 5000.0
 ## Mined ore ready to load onto a cargo or mining craft.
@@ -51,7 +53,10 @@ func _ready() -> void:
 	if site_uid == "":
 		site_uid = "asteroid_%s" % MissionData.current_mission_id
 	_site.setup(site_uid)
+	callsign = "Asteroid Cluster"
+	rock_count = maxi(rock_count, 3)
 	add_to_group("asteroids")
+	add_to_group("asteroid_clusters")
 	add_to_group("neutral_craft")
 	velocity = Vector2.ZERO
 	_apply_visuals()
@@ -151,6 +156,56 @@ func count_open_work_slots() -> int:
 	return _site.count_open()
 
 
+func get_site_kind() -> String:
+	return "asteroid_cluster"
+
+
+func contents_summary() -> String:
+	return "%d rocks · vein %d · stock %d / %d" % [
+		rock_count,
+		int(ore_vein),
+		int(ore_stockpile),
+		int(stockpile_capacity),
+	]
+
+
+## Team-sim work against absorbed craft records.
+func apply_team_member_work(member: Dictionary, delta: float) -> Dictionary:
+	if not explored or delta <= 0.0 or member.is_empty():
+		return member
+	var craft_id := FleetData.normalize_craft_id(str(member.get("craft_id", "")))
+	var def := FleetData.get_strike_def(craft_id)
+	var space := float(member.get("miner_capacity", 0.0)) - float(member.get("miner_cargo", 0.0))
+	if space <= 0.0:
+		return member
+	if str(member.get("cargo_kind", "")) == "scrap" and float(member.get("miner_cargo", 0.0)) > 0.1:
+		return member
+	var can_mine := bool(def.get("can_mine", false))
+	var can_haul := bool(def.get("can_haul_ore", false))
+	var mult := FleetData.get_craft_multiplier(
+		maxi(int(member.get("crew", 0)), 0),
+		float(member.get("maintenance", 1.0)),
+		float(member.get("supplies", 1.0))
+	)
+	if can_mine and ore_vein > 0.0:
+		var rate := float(def.get("mine_rate", 8.0)) * mult
+		var mined := minf(rate * delta, minf(ore_vein, space))
+		if mined > 0.0:
+			ore_vein -= mined
+			member["cargo_kind"] = "ore"
+			member["miner_cargo"] = float(member.get("miner_cargo", 0.0)) + mined
+			space = float(member.get("miner_capacity", 0.0)) - float(member["miner_cargo"])
+			ore_changed.emit(ore_vein)
+	if can_haul and space > 0.0 and ore_stockpile > 0.0:
+		var haul := minf(space, minf(ore_stockpile, 12.0 * delta))
+		if haul > 0.0:
+			ore_stockpile -= haul
+			member["cargo_kind"] = "ore"
+			member["miner_cargo"] = float(member.get("miner_cargo", 0.0)) + haul
+	_update_label()
+	return member
+
+
 func on_shuttle_docked(shuttle: Node) -> void:
 	if not explored:
 		return
@@ -211,6 +266,15 @@ func is_exploring() -> bool:
 	return explore_active and not explored
 
 
+func get_scan_progress() -> float:
+	## 0..1 while scanning; 1 when surveyed.
+	if explored:
+		return 1.0
+	if not explore_active:
+		return 0.0
+	return clampf(_explore_progress / maxf(explore_base_seconds, 0.01), 0.0, 1.0)
+
+
 func start_explore() -> bool:
 	if not can_start_explore():
 		return false
@@ -226,16 +290,18 @@ func stop_explore() -> void:
 
 
 func explore_tick(delta: float, boarders_present: bool, soldier_count: int = 1) -> void:
+	## Scout scan — soldier_count is scout crew aboard (or team scout crew).
+	## Missing scouts pause progress; they do not wipe it (control teams + docked craft share this).
 	if explored:
 		explore_active = false
 		return
 	if not explore_active:
 		return
 	if not boarders_present or delta <= 0.0:
-		stop_explore()
 		return
-	var soldiers := maxi(soldier_count, 1)
-	var rate := 0.65 + 0.35 * float(soldiers)
+	var crew := clampf(float(maxi(soldier_count, 1)), 1.0, 2.0)
+	## 1 crew ≈ 1.0x, 2 crew ≈ 1.55x scan speed.
+	var rate := 0.7 + 0.425 * (crew - 1.0)
 	_explore_progress += delta * rate
 	if _explore_progress < explore_base_seconds:
 		_update_label()
@@ -420,6 +486,7 @@ func _update_label() -> void:
 	if not has_node("Label"):
 		return
 	var lines: PackedStringArray = [callsign]
+	lines.append("%d rocks" % rock_count)
 	if explored:
 		var crew := get_work_crew()
 		var open_n := count_open_work_slots()
@@ -427,12 +494,9 @@ func _update_label() -> void:
 			lines.append("Crew %d / %d open · mining" % [crew, open_n])
 		else:
 			lines.append("Crew 0 / %d open · idle" % open_n)
-		lines.append("Vein %d" % int(ore_vein))
-		lines.append("Stock %d / %d" % [int(ore_stockpile), int(stockpile_capacity)])
-	elif explore_active and _explore_progress > 0.0:
-		lines.append("Surveying…")
+		lines.append("Vein %d · Stock %d / %d" % [int(ore_vein), int(ore_stockpile), int(stockpile_capacity)])
 	elif explore_active:
-		lines.append("Survey ordered")
+		lines.append("Scan %d%%" % int(round(get_scan_progress() * 100.0)))
 	else:
-		lines.append("Dock · Explore")
+		lines.append("Dock scout · Scan")
 	$Label.text = "\n".join(lines)

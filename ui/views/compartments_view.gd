@@ -1,7 +1,5 @@
 extends Control
 
-const CrewSlot := preload("res://ui/views/crew_slot.gd")
-
 const FUNCTION_COLORS := {
 	"command": Color(0.55, 0.8, 1.0),
 	"propulsion": Color(0.35, 0.75, 1.0),
@@ -267,16 +265,15 @@ func _make_module_card(compartment_id: String) -> PanelContainer:
 	var def := ShipData.get_compartment_def(compartment_id)
 	var function_id := str(def.get("function", ""))
 	var working := CrewData.get_assigned(compartment_id)
-	var open_n := CrewData.get_open_slot_count(compartment_id)
-	var crew_max := CrewData.get_max_assignable(compartment_id)
+	var target := CrewData.get_staff_target(compartment_id)
 	var selected := compartment_id == _selected_compartment
 	var accent: Color = FUNCTION_COLORS.get(function_id, Color(0.6, 0.6, 0.75))
 	var is_mess := compartment_id == "mess_hall"
 	var is_quarters := compartment_id == "crew_quarters"
-	var tall_card := is_mess or is_quarters
+	var leisure := CrewData.is_leisure_compartment(compartment_id)
 
 	var card := PanelContainer.new()
-	card.custom_minimum_size = Vector2(220, 200 if tall_card else 150)
+	card.custom_minimum_size = Vector2(220, 118)
 	card.clip_contents = true
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	card.gui_input.connect(_on_card_gui.bind(compartment_id))
@@ -288,7 +285,7 @@ func _make_module_card(compartment_id: String) -> PanelContainer:
 	style.set_corner_radius_all(8)
 	style.set_content_margin_all(8)
 	card.add_theme_stylebox_override("panel", style)
-	if working <= 0 and not selected and not tall_card:
+	if working <= 0 and not selected:
 		card.modulate = Color(0.9, 0.92, 0.97, 1)
 
 	var column := VBoxContainer.new()
@@ -321,113 +318,99 @@ func _make_module_card(compartment_id: String) -> PanelContainer:
 	title_col.add_child(name_label)
 
 	var efficiency := CrewData.get_operation_efficiency(compartment_id)
-	var leisure := CrewData.is_leisure_compartment(compartment_id)
 	var status := Label.new()
 	if is_mess:
-		status.text = "Cooks %d/%d · Meals %d/%d" % [
+		status.text = "Cooks %d/%d · Dining %d/%d · Meals %d/%d" % [
 			working,
-			open_n,
+			target,
+			CrewData.count_mess_eaters(),
+			CrewData.get_eat_seat_capacity(),
 			int(ShipData.get_meals()),
 			int(ShipData.MEALS_CAPACITY),
 		]
 		status.add_theme_color_override("font_color", Color(0.65, 1.0, 0.75, 1) if working > 0 else Color(0.95, 0.8, 0.45, 1))
 	elif is_quarters:
-		status.text = "Staff %d/%d · Sleeping %d" % [
+		status.text = "Staff %d/%d · Sleeping %d/%d" % [
 			working,
-			open_n,
+			target,
 			CrewData.count_sleepers(),
+			CrewData.get_sleep_bunk_capacity(),
 		]
 		status.add_theme_color_override("font_color", Color(0.65, 1.0, 0.75, 1) if working > 0 or CrewData.count_sleepers() > 0 else Color(0.95, 0.8, 0.45, 1))
 	elif leisure:
-		status.text = "Relaxing %d · lounge always open" % working
+		status.text = "Relaxing %d · auto lounge" % working
 		status.add_theme_color_override("font_color", Color(0.65, 1.0, 0.75, 1) if working > 0 else Color(0.95, 0.8, 0.45, 1))
 	elif working > 0:
-		status.text = "Work %d/%d open · Eff %.1f" % [working, open_n, efficiency]
+		status.text = "Staffed %d/%d · Eff %.1f" % [working, target, efficiency]
 		status.add_theme_color_override("font_color", Color(0.65, 1.0, 0.75, 1))
-	elif open_n > 0:
-		status.text = "0/%d open · waiting for crew" % open_n
+	elif target > 0:
+		status.text = "0/%d · waiting for crew" % target
 		status.add_theme_color_override("font_color", Color(0.95, 0.8, 0.45, 1))
 	else:
-		status.text = "All slots closed · offline"
+		status.text = "Unstaffed · offline"
 		status.add_theme_color_override("font_color", Color(0.75, 0.55, 0.55, 1))
 	status.add_theme_font_size_override("font_size", 11)
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_col.add_child(status)
 
-	if is_mess:
-		var cook_label := Label.new()
-		cook_label.text = "Cook posts"
-		cook_label.add_theme_font_size_override("font_size", 10)
-		cook_label.add_theme_color_override("font_color", Color(0.8, 0.75, 0.9, 1))
-		cook_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		column.add_child(cook_label)
-	elif is_quarters:
-		var staff_label := Label.new()
-		staff_label.text = "Staff posts"
-		staff_label.add_theme_font_size_override("font_size", 10)
-		staff_label.add_theme_color_override("font_color", Color(0.8, 0.75, 0.9, 1))
-		staff_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		column.add_child(staff_label)
-
-	var slots := GridContainer.new()
-	slots.columns = 5
-	slots.add_theme_constant_override("h_separation", 2)
-	slots.add_theme_constant_override("v_separation", 2)
-	slots.mouse_filter = Control.MOUSE_FILTER_STOP
-	column.add_child(slots)
-
-	for slot_i in crew_max:
-		var slot: PanelContainer = CrewSlot.new()
-		slots.add_child(slot)
-		slot.setup(compartment_id, slot_i, accent, CrewSlot.KIND_WORK)
-		slot.slot_changed.connect(_on_slot_changed.bind(compartment_id))
-
-	if is_mess:
-		var eat_label := Label.new()
-		eat_label.text = "Eat seats · %d dining (always open)" % CrewData.count_mess_eaters()
-		eat_label.add_theme_font_size_override("font_size", 10)
-		eat_label.add_theme_color_override("font_color", Color(0.8, 0.75, 0.9, 1))
-		eat_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		column.add_child(eat_label)
-		var eat_slots := GridContainer.new()
-		eat_slots.columns = 5
-		eat_slots.add_theme_constant_override("h_separation", 2)
-		eat_slots.add_theme_constant_override("v_separation", 2)
-		eat_slots.mouse_filter = Control.MOUSE_FILTER_STOP
-		column.add_child(eat_slots)
-		var eat_accent := Color(0.95, 0.7, 0.55, 1.0)
-		for slot_i in CrewData.get_eat_slot_count():
-			var eat_slot: PanelContainer = CrewSlot.new()
-			eat_slots.add_child(eat_slot)
-			eat_slot.setup(compartment_id, slot_i, eat_accent, CrewSlot.KIND_EAT)
-			eat_slot.slot_changed.connect(_on_slot_changed.bind(compartment_id))
-
-	if is_quarters:
-		var sleep_label := Label.new()
-		sleep_label.text = "Sleep bunks · %d asleep (always open)" % CrewData.count_sleepers()
-		sleep_label.add_theme_font_size_override("font_size", 10)
-		sleep_label.add_theme_color_override("font_color", Color(0.8, 0.75, 0.9, 1))
-		sleep_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		column.add_child(sleep_label)
-		var sleep_slots := GridContainer.new()
-		sleep_slots.columns = 5
-		sleep_slots.add_theme_constant_override("h_separation", 2)
-		sleep_slots.add_theme_constant_override("v_separation", 2)
-		sleep_slots.mouse_filter = Control.MOUSE_FILTER_STOP
-		column.add_child(sleep_slots)
-		var sleep_accent := Color(0.55, 0.7, 0.95, 1.0)
-		for slot_i in CrewData.get_sleep_slot_count():
-			var sleep_slot: PanelContainer = CrewSlot.new()
-			sleep_slots.add_child(sleep_slot)
-			sleep_slot.setup(compartment_id, slot_i, sleep_accent, CrewSlot.KIND_SLEEP)
-			sleep_slot.slot_changed.connect(_on_slot_changed.bind(compartment_id))
+	## Team-style − / + staff target (lounge is always full — no control).
+	if not leisure:
+		column.add_child(_make_staff_target_row(compartment_id, working, target))
 
 	return card
 
 
-func _on_slot_changed(compartment_id: String) -> void:
-	_selected_compartment = compartment_id
-	_request_refresh()
+func _make_staff_target_row(compartment_id: String, working: int, target: int) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	row.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var minus := Button.new()
+	minus.text = "−"
+	minus.focus_mode = Control.FOCUS_NONE
+	minus.custom_minimum_size = Vector2(28, 28)
+	minus.disabled = target <= 0
+	minus.tooltip_text = "Lower staff target"
+	minus.pressed.connect(func() -> void:
+		CrewData.adjust_staff_target(compartment_id, -1)
+		_selected_compartment = compartment_id
+		_request_refresh()
+	)
+	row.add_child(minus)
+
+	var plus := Button.new()
+	plus.text = "+"
+	plus.focus_mode = Control.FOCUS_NONE
+	plus.custom_minimum_size = Vector2(28, 28)
+	plus.disabled = target >= CrewData.get_max_assignable(compartment_id)
+	plus.tooltip_text = "Raise staff target — crew auto-fill"
+	plus.pressed.connect(func() -> void:
+		CrewData.adjust_staff_target(compartment_id, 1)
+		_selected_compartment = compartment_id
+		_request_refresh()
+	)
+	row.add_child(plus)
+
+	var count := Label.new()
+	count.text = "%d/%d" % [working, target]
+	count.custom_minimum_size = Vector2(44, 0)
+	count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	count.add_theme_font_size_override("font_size", 12)
+	count.add_theme_color_override("font_color", Color(0.9, 0.94, 1.0, 1))
+	count.tooltip_text = "Working now / staff target"
+	count.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(count)
+
+	var hint := Label.new()
+	hint.text = "auto"
+	hint.add_theme_font_size_override("font_size", 10)
+	hint.add_theme_color_override("font_color", Color(0.65, 0.72, 0.85, 1))
+	hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(hint)
+	return row
 
 
 func _on_card_gui(event: InputEvent, compartment_id: String) -> void:

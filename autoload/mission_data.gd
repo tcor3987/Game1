@@ -77,7 +77,7 @@ const MISSION_DEFS := {
 		"name": "Silent Wake",
 		"type": "sos",
 		"summary": "A cold convoy wreck. Weak signals, no confirmed contacts.",
-		"objective": "Explore wrecks with expedition/transport craft, station crew to salvage, clear threats, recover survivors.",
+		"objective": "Scan wrecks with scouts, clear threats with combat shuttles, station crew to salvage, recover survivors.",
 		"spawn": Vector2(520, 480),
 		"safe_zone": true,
 		"safe_zone_name": "Silent Wake",
@@ -426,6 +426,14 @@ func set_scrap_remaining(mission_id: String, derelict_id: String, amount: float)
 	var mission_state: Dictionary = derelict_scrap[mission_id]
 	mission_state[derelict_id] = maxf(amount, 0.0)
 	derelict_scrap[mission_id] = mission_state
+
+
+func add_scrap_to_derelict(mission_id: String, derelict_id: String, amount: float) -> void:
+	if amount <= 0.0:
+		return
+	_ensure_derelict_state(mission_id)
+	var cur := get_scrap_remaining(mission_id, derelict_id)
+	set_scrap_remaining(mission_id, derelict_id, cur + amount)
 
 
 func extract_scrap(mission_id: String, derelict_id: String, amount: float) -> float:
