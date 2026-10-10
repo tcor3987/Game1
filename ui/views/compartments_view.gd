@@ -273,7 +273,7 @@ func _make_module_card(compartment_id: String) -> PanelContainer:
 	var leisure := CrewData.is_leisure_compartment(compartment_id)
 
 	var card := PanelContainer.new()
-	card.custom_minimum_size = Vector2(220, 118)
+	card.custom_minimum_size = Vector2(220, 128)
 	card.clip_contents = true
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	card.gui_input.connect(_on_card_gui.bind(compartment_id))
@@ -341,20 +341,20 @@ func _make_module_card(compartment_id: String) -> PanelContainer:
 		status.text = "Relaxing %d · auto lounge" % working
 		status.add_theme_color_override("font_color", Color(0.65, 1.0, 0.75, 1) if working > 0 else Color(0.95, 0.8, 0.45, 1))
 	elif working > 0:
-		status.text = "Staffed %d/%d · Eff %.1f" % [working, target, efficiency]
+		status.text = "%d/%d on station · Eff %.1f" % [working, target, efficiency]
 		status.add_theme_color_override("font_color", Color(0.65, 1.0, 0.75, 1))
 	elif target > 0:
 		status.text = "0/%d · waiting for crew" % target
 		status.add_theme_color_override("font_color", Color(0.95, 0.8, 0.45, 1))
 	else:
-		status.text = "Unstaffed · offline"
+		status.text = "Max 0 · set max to staff"
 		status.add_theme_color_override("font_color", Color(0.75, 0.55, 0.55, 1))
 	status.add_theme_font_size_override("font_size", 11)
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_col.add_child(status)
 
-	## Team-style − / + staff target (lounge is always full — no control).
+	## Team-style − / + max crew (lounge is always open — no control).
 	if not leisure:
 		column.add_child(_make_staff_target_row(compartment_id, working, target))
 
@@ -365,13 +365,14 @@ func _make_staff_target_row(compartment_id: String, working: int, target: int) -
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
 	row.mouse_filter = Control.MOUSE_FILTER_STOP
+	var hard_cap := CrewData.get_max_assignable(compartment_id)
 
 	var minus := Button.new()
 	minus.text = "−"
 	minus.focus_mode = Control.FOCUS_NONE
 	minus.custom_minimum_size = Vector2(28, 28)
 	minus.disabled = target <= 0
-	minus.tooltip_text = "Lower staff target"
+	minus.tooltip_text = "Lower max crew"
 	minus.pressed.connect(func() -> void:
 		CrewData.adjust_staff_target(compartment_id, -1)
 		_selected_compartment = compartment_id
@@ -383,8 +384,8 @@ func _make_staff_target_row(compartment_id: String, working: int, target: int) -
 	plus.text = "+"
 	plus.focus_mode = Control.FOCUS_NONE
 	plus.custom_minimum_size = Vector2(28, 28)
-	plus.disabled = target >= CrewData.get_max_assignable(compartment_id)
-	plus.tooltip_text = "Raise staff target — crew auto-fill"
+	plus.disabled = target >= hard_cap
+	plus.tooltip_text = "Raise max crew — free crew fill in"
 	plus.pressed.connect(func() -> void:
 		CrewData.adjust_staff_target(compartment_id, 1)
 		_selected_compartment = compartment_id
@@ -399,16 +400,17 @@ func _make_staff_target_row(compartment_id: String, working: int, target: int) -
 	count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	count.add_theme_font_size_override("font_size", 12)
 	count.add_theme_color_override("font_color", Color(0.9, 0.94, 1.0, 1))
-	count.tooltip_text = "Working now / staff target"
+	count.tooltip_text = "Working now / max crew (cap %d)" % hard_cap
 	count.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(count)
 
 	var hint := Label.new()
-	hint.text = "auto"
-	hint.add_theme_font_size_override("font_size", 10)
-	hint.add_theme_color_override("font_color", Color(0.65, 0.72, 0.85, 1))
+	hint.text = "Max"
+	hint.add_theme_font_size_override("font_size", 11)
+	hint.add_theme_color_override("font_color", Color(0.75, 0.82, 0.95, 1))
 	hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hint.tooltip_text = "Set how many crew this compartment may hold. Surplus free crew fill automatically."
+	hint.mouse_filter = Control.MOUSE_FILTER_STOP
 	row.add_child(hint)
 	return row
 

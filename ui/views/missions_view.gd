@@ -226,7 +226,7 @@ func _refresh_details() -> void:
 		lines.append("Hangar → seat a pilot → launch → Dock → Explore asteroids/wrecks.")
 		lines.append("Give crew to asteroids/wrecks to mine/salvage; more crew works faster.")
 		lines.append("Take stockpiled ore/scrap onto a Cargo Shuttle, then recall to the mothership.")
-		lines.append("Set compartment staff targets. Orange = long shifts; Red = forced work.")
+		lines.append("Set each compartment’s max crew (−/+). Orange = long shifts; Red = forced work.")
 	if _selected_mission == MissionData.current_mission_id:
 		lines.append("")
 		lines.append("You are currently in this sector.")

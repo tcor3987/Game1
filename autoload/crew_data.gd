@@ -64,9 +64,20 @@ const LEISURE_COMPARTMENTS := ["recreation"]
 const MESS_HALL_ID := "mess_hall"
 const CREW_QUARTERS_ID := "crew_quarters"
 
+## New-game seed only. Work maxes otherwise start at 0 — player allocates scarce crew.
+const STARTER_STAFF_TARGETS := {
+	"bridge": 1,
+	"engine": 2,
+	"reactor": 2,
+	"sensor": 1,
+	"kitchen": 1,
+	"mess_hall": 1,
+	"hangar": 1,
+}
+
 var _roster: Array[Dictionary] = []
 var _next_id: int = 1
-## compartment_id -> desired worker count (0..CREW_PER_COMPARTMENT). Auto-filled like control teams.
+## compartment_id -> player max workers (0..cap). Crew auto-fill up to this, like team craft maxes.
 var _staff_target: Dictionary = {}
 ## Mess hall dine seats (always open; capacity from EAT_SEATS).
 var _eat_slots: Array = []
@@ -97,6 +108,7 @@ func reset_for_new_game() -> void:
 	_next_id = 1
 	alert_mode = MODE_GREEN
 	_reset_staff_targets()
+	_apply_starter_staff_targets()
 	_reset_eat_slots()
 	_reset_sleep_slots()
 	_force_rest_slots_open(false)
@@ -670,7 +682,7 @@ func get_staff_target(compartment_id: String) -> int:
 	_ensure_staff_target(compartment_id)
 	if is_leisure_compartment(compartment_id):
 		return get_max_assignable(compartment_id)
-	return int(_staff_target.get(compartment_id, get_max_assignable(compartment_id)))
+	return int(_staff_target.get(compartment_id, 0))
 
 
 func set_staff_target(compartment_id: String, amount: int, fill_now: bool = true) -> void:
@@ -681,9 +693,11 @@ func set_staff_target(compartment_id: String, amount: int, fill_now: bool = true
 	if is_leisure_compartment(compartment_id):
 		amount = cap
 	amount = clampi(amount, 0, cap)
-	var prev := get_staff_target(compartment_id)
+	var prev := int(_staff_target.get(compartment_id, 0))
+	if is_leisure_compartment(compartment_id):
+		prev = cap
 	_staff_target[compartment_id] = amount
-	## Drop anyone seated above the new target.
+	## Drop anyone seated above the new max.
 	if amount < prev:
 		for person in _roster:
 			if str(person.get("duty", "")) != DUTY_COMPARTMENT:
@@ -1366,6 +1380,26 @@ func _first_eligible_worker_id() -> String:
 	return ""
 
 
+## When the commander raises a compartment max, pull able pool crew immediately.
+func _first_fillable_worker_id() -> String:
+	var idle := _first_eligible_worker_id()
+	if idle != "":
+		return idle
+	if is_force_work_mode():
+		return ""
+	## Interrupt off-duty pool people who are fit enough to work.
+	for person in _roster:
+		if str(person.get("duty", "")) != DUTY_POOL:
+			continue
+		if not _can_work(person):
+			continue
+		var activity := str(person.get("activity", ACTIVITY_IDLE))
+		if activity == ACTIVITY_WORK:
+			continue
+		return str(person.get("id", ""))
+	return ""
+
+
 func _first_fun_needy_id() -> String:
 	var best_id := ""
 	var best_fun := 2.0
@@ -1759,11 +1793,19 @@ func _ensure_staff_target(compartment_id: String) -> void:
 		return
 	var cap := get_max_assignable(compartment_id)
 	if not _staff_target.has(compartment_id):
-		_staff_target[compartment_id] = cap
+		## Team-style: player raises max; do not auto-open every post.
+		_staff_target[compartment_id] = cap if is_leisure_compartment(compartment_id) else 0
 		return
 	_staff_target[compartment_id] = clampi(int(_staff_target[compartment_id]), 0, cap)
 	if is_leisure_compartment(compartment_id):
 		_staff_target[compartment_id] = cap
+
+
+func _apply_starter_staff_targets() -> void:
+	for compartment_id in STARTER_STAFF_TARGETS.keys():
+		if ShipData.count_installed(str(compartment_id)) <= 0:
+			continue
+		set_staff_target(str(compartment_id), int(STARTER_STAFF_TARGETS[compartment_id]), false)
 
 
 func _fill_staff_vacancies(compartment_id: String) -> void:
@@ -1776,7 +1818,7 @@ func _fill_staff_vacancies(compartment_id: String) -> void:
 				return
 			move_crew_to_slot(needy, compartment_id, slot_i)
 		else:
-			var worker := _first_eligible_worker_id()
+			var worker := _first_fillable_worker_id()
 			if worker == "":
 				return
 			move_crew_to_slot(worker, compartment_id, slot_i)
@@ -1796,10 +1838,15 @@ func _ensure_eat_slots() -> void:
 func _load_staff_targets(saved) -> void:
 	_reset_staff_targets()
 	if typeof(saved) != TYPE_DICTIONARY:
+		_apply_starter_staff_targets()
 		return
+	var loaded_any := false
+	var all_at_cap := true
 	for key in saved.keys():
 		var compartment_id := str(key)
 		if ShipData.get_compartment_def(compartment_id).is_empty():
+			continue
+		if is_leisure_compartment(compartment_id):
 			continue
 		var raw = saved[key]
 		var amount := 0
@@ -1811,6 +1858,14 @@ func _load_staff_targets(saved) -> void:
 		else:
 			amount = maxi(int(raw), 0)
 		set_staff_target(compartment_id, amount, false)
+		loaded_any = true
+		var cap := get_max_assignable(compartment_id)
+		if cap > 0 and amount < cap:
+			all_at_cap = false
+	## Old saves defaulted every post open — convert to starter maxes so the player allocates.
+	if not loaded_any or all_at_cap:
+		_reset_staff_targets()
+		_apply_starter_staff_targets()
 
 
 func _load_eat_slots(_saved) -> void:
