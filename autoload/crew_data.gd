@@ -30,6 +30,8 @@ const MODE_ORDER := [MODE_GREEN, MODE_YELLOW, MODE_ORANGE, MODE_RED]
 
 ## Below this, crew skip work and chase the low need instead (green/yellow/orange).
 const NEED_WORK_THRESHOLD := 0.25
+## Free pool crew top up eat/sleep/fun seats when a need dips under this.
+const NEED_TOPUP_THRESHOLD := 0.5
 
 ## Shift lengths (game hours). Eat stays short.
 const HOURS_EAT := 1.0
@@ -41,8 +43,6 @@ const HOURS_WORK_RED := 12.0
 const HOURS_FUN_GREEN := 4.0
 const HOURS_FUN_YELLOW := 4.0
 const HOURS_FUN_ORANGE := 2.0
-## Bunk sleep restores fully across this many hours (4h session ≈ half bar).
-const HOURS_SLEEP_TO_FULL := 8.0
 
 ## Soft roster cap — living space (mess / bunks) must cover daily turnover.
 const MAX_CREW := 2000
@@ -1157,17 +1157,18 @@ func tick_activities(delta: float) -> void:
 		return
 	var hours := GameTime.delta_to_hours(delta)
 	var finished: Array[Dictionary] = []
-	for person in _roster:
+	for i in _roster.size():
+		var person: Dictionary = _roster[i]
 		_tick_person_needs(person, hours)
 		var duty := str(person.get("duty", ""))
 		if duty == DUTY_SITE:
 			## Site workers keep mining/salvaging; refresh work timer in place.
-			var left := float(person.get("activity_hours", 0.0)) - hours
-			if left <= 0.0:
+			var site_left := float(person.get("activity_hours", 0.0)) - hours
+			if site_left <= 0.0:
 				person["activity"] = ACTIVITY_WORK
 				person["activity_hours"] = _work_duration_hours()
 			else:
-				person["activity_hours"] = left
+				person["activity_hours"] = site_left
 			continue
 		if not _is_ship_schedule_crew(person) and duty != DUTY_COMPARTMENT:
 			continue
@@ -1177,6 +1178,8 @@ func tick_activities(delta: float) -> void:
 			finished.append(person)
 	for person in finished:
 		_on_activity_finished(person)
+	## Idle free crew with soft needs claim open mess/bunk/lounge seats.
+	_pull_idle_free_to_needs()
 	_emit_needs_ui_if_needed()
 
 
@@ -1515,13 +1518,28 @@ func _duration_for_activity(activity: String) -> float:
 func _on_activity_finished(person: Dictionary) -> void:
 	if person.is_empty():
 		return
-	## Leave the work slot before picking the next job.
+	var finished_activity := str(person.get("activity", ACTIVITY_IDLE))
+	## Finish the need this task was for, then free the seat.
+	_complete_activity_need(person, finished_activity)
 	if str(person.get("duty", "")) == DUTY_COMPARTMENT:
 		_set_pool(person)
 	else:
 		person["activity"] = ACTIVITY_IDLE
 		person["activity_hours"] = 0.0
 	_assign_next_activity(person)
+
+
+## Snap the need this activity restores so a finished sleep/eat/fun shift always pays off.
+func _complete_activity_need(person: Dictionary, activity: String) -> void:
+	match activity:
+		ACTIVITY_SLEEP:
+			person["sleep"] = 1.0
+		ACTIVITY_EAT:
+			person["hunger"] = 1.0
+		ACTIVITY_FUN:
+			person["fun"] = 1.0
+		_:
+			pass
 
 
 func _assign_next_activity(person: Dictionary) -> void:
@@ -1536,10 +1554,59 @@ func _assign_next_activity(person: Dictionary) -> void:
 	if not _can_work(person):
 		_assign_life_activity(person, true)
 		return
+	## Free crew: use open life seats before work when a need is under 50%.
+	if str(person.get("duty", "")) == DUTY_POOL and _try_assign_need_topup(person):
+		return
 	if _assign_work(person, false):
 		return
 	## No free work seat — keep them busy with life support instead of idling.
 	_assign_life_activity(person, false)
+
+
+## Seat free/idle crew into mess, bunks, or lounge when a need is soft-low.
+func _try_assign_need_topup(person: Dictionary) -> bool:
+	if person.is_empty() or is_force_work_mode():
+		return false
+	var hunger := float(person.get("hunger", 1.0))
+	var sleep_v := float(person.get("sleep", 1.0))
+	var fun_v := float(person.get("fun", 1.0))
+	## Worst need under the top-up line first.
+	var picks: Array[Dictionary] = []
+	if hunger < NEED_TOPUP_THRESHOLD:
+		picks.append({"activity": ACTIVITY_EAT, "value": hunger})
+	if allows_sleep() and sleep_v < NEED_TOPUP_THRESHOLD:
+		picks.append({"activity": ACTIVITY_SLEEP, "value": sleep_v})
+	if allows_fun() and fun_v < NEED_TOPUP_THRESHOLD:
+		picks.append({"activity": ACTIVITY_FUN, "value": fun_v})
+	if picks.is_empty():
+		return false
+	picks.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return float(a.get("value", 1.0)) < float(b.get("value", 1.0))
+	)
+	for pick in picks:
+		match str(pick.get("activity", "")):
+			ACTIVITY_EAT:
+				if _assign_mess_eat(person):
+					return true
+			ACTIVITY_SLEEP:
+				if _assign_quarters_sleep(person):
+					return true
+			ACTIVITY_FUN:
+				if _assign_recreation(person):
+					return true
+	return false
+
+
+func _pull_idle_free_to_needs() -> void:
+	if is_force_work_mode():
+		return
+	for person in _roster:
+		if str(person.get("duty", "")) != DUTY_POOL:
+			continue
+		## Only pull true idlers — don't yank people off work/eat/sleep/fun mid-shift.
+		if str(person.get("activity", ACTIVITY_IDLE)) != ACTIVITY_IDLE:
+			continue
+		_try_assign_need_topup(person)
 
 
 func _assign_life_activity(person: Dictionary, urgent: bool) -> void:
@@ -1703,8 +1770,19 @@ func _tick_person_needs(person: Dictionary, hours: float) -> void:
 	if hours <= 0.0:
 		return
 	var duty := str(person.get("duty", ""))
+	var activity := str(person.get("activity", ACTIVITY_IDLE))
 	## Craft-duty crew still tire slowly; packed rations keep them fed underway.
+	## If marked Sleeping while off the ship schedule, still recover rest.
 	if duty == DUTY_HANGAR or duty == DUTY_PILOT or duty == DUTY_PASSENGER:
+		if activity == ACTIVITY_SLEEP:
+			person["sleep"] = clampf(
+				float(person.get("sleep", 0.0)) + (1.0 / maxf(_sleep_duration_hours(), 0.1)) * hours,
+				0.0,
+				1.0
+			)
+			person["hunger"] = clampf(float(person.get("hunger", 1.0)) - 0.03 * hours, 0.0, 1.0)
+			person["fun"] = clampf(float(person.get("fun", 1.0)) - 0.02 * hours, 0.0, 1.0)
+			return
 		person["hunger"] = clampf(float(person.get("hunger", 1.0)) - 0.04 * hours, 0.0, 1.0)
 		person["sleep"] = clampf(float(person.get("sleep", 1.0)) - 0.05 * hours, 0.0, 1.0)
 		person["fun"] = clampf(float(person.get("fun", 1.0)) - 0.03 * hours, 0.0, 1.0)
@@ -1719,15 +1797,16 @@ func _tick_person_needs(person: Dictionary, hours: float) -> void:
 		person["sleep"] = clampf(float(person.get("sleep", 1.0)) - 0.1 * hours, 0.0, 1.0)
 		person["fun"] = clampf(float(person.get("fun", 1.0)) - 0.07 * hours, 0.0, 1.0)
 		return
-	match str(person.get("activity", ACTIVITY_IDLE)):
+	match activity:
 		ACTIVITY_WORK:
 			person["hunger"] = clampf(float(person.get("hunger", 1.0)) - 0.08 * hours, 0.0, 1.0)
 			person["sleep"] = clampf(float(person.get("sleep", 1.0)) - 0.1 * hours, 0.0, 1.0)
 			person["fun"] = clampf(float(person.get("fun", 1.0)) - 0.07 * hours, 0.0, 1.0)
 		ACTIVITY_EAT:
-			var restored := 0.45 * hours
+			## Fill hunger over the eat shift when meals/rations are available.
+			var eat_rate := 1.0 / maxf(HOURS_EAT, 0.1)
+			var restored := eat_rate * hours
 			var fed := false
-			## Prefer fresh mess-hall meals; fall back to packed rations.
 			if ShipData.get_meals() > 0.0:
 				var eaten := ShipData.consume_meals(restored * 0.35)
 				fed = eaten > 0.0
@@ -1737,28 +1816,29 @@ func _tick_person_needs(person: Dictionary, hours: float) -> void:
 			if fed:
 				person["hunger"] = clampf(float(person.get("hunger", 0.0)) + restored, 0.0, 1.0)
 			else:
-				## Nothing to eat — hunger barely recovers.
 				person["hunger"] = clampf(float(person.get("hunger", 0.0)) + restored * 0.05, 0.0, 1.0)
 			person["sleep"] = clampf(float(person.get("sleep", 1.0)) - 0.02 * hours, 0.0, 1.0)
 		ACTIVITY_SLEEP:
-			## 8h bunk sleep fills rest completely; pool sleep is half-rate.
-			var sleep_rate := 0.5 / HOURS_SLEEP_TO_FULL
+			## Bunk sleep fills Rest over the sleep shift; pool nap is slower.
+			var sleep_hours := maxf(_sleep_duration_hours(), 0.1)
+			var sleep_rate := 0.65 / sleep_hours
 			if (
 				duty == DUTY_COMPARTMENT
 				and str(person.get("compartment_id", "")) == CREW_QUARTERS_ID
 			):
-				sleep_rate = 1.0 / HOURS_SLEEP_TO_FULL
+				sleep_rate = 1.0 / sleep_hours
 			person["sleep"] = clampf(float(person.get("sleep", 0.0)) + sleep_rate * hours, 0.0, 1.0)
 			person["hunger"] = clampf(float(person.get("hunger", 1.0)) - 0.03 * hours, 0.0, 1.0)
 			person["fun"] = clampf(float(person.get("fun", 1.0)) - 0.02 * hours, 0.0, 1.0)
 		ACTIVITY_FUN:
-			## Full recovery only in an open Recreation post; pool fun is a weak fallback.
-			var fun_rate := 0.15
+			## Lounge post fills Fun over the recreation shift; pool is weaker.
+			var fun_hours := maxf(_fun_duration_hours(), 0.1)
+			var fun_rate := 0.55 / fun_hours
 			if (
 				duty == DUTY_COMPARTMENT
 				and str(person.get("compartment_id", "")) == "recreation"
 			):
-				fun_rate = 0.55
+				fun_rate = 1.0 / fun_hours
 			person["fun"] = clampf(float(person.get("fun", 0.0)) + fun_rate * hours, 0.0, 1.0)
 			person["hunger"] = clampf(float(person.get("hunger", 1.0)) - 0.04 * hours, 0.0, 1.0)
 			person["sleep"] = clampf(float(person.get("sleep", 1.0)) - 0.03 * hours, 0.0, 1.0)

@@ -1758,11 +1758,18 @@ func _tick_control_teams(delta: float) -> void:
 	_sync_team_markers()
 
 
+func _nodes_in_group(group_name: String) -> Array:
+	var tree := get_tree()
+	if tree == null:
+		return []
+	return tree.get_nodes_in_group(group_name)
+
+
 func _find_site_by_uid(site_uid: String) -> Node2D:
 	if site_uid == "":
 		return null
 	for group_name in ["asteroids", "derelicts", "asteroid_clusters", "wreck_sites"]:
-		for node in get_tree().get_nodes_in_group(group_name):
+		for node in _nodes_in_group(group_name):
 			if not is_instance_valid(node):
 				continue
 			if node.has_method("get_site_uid") and str(node.get_site_uid()) == site_uid:
@@ -1775,7 +1782,7 @@ func _find_site_by_uid(site_uid: String) -> Node2D:
 func _nearest_enemy_in_range(from: Vector2, radius: float) -> Node2D:
 	var best: Node2D = null
 	var best_dist := radius
-	for node in get_tree().get_nodes_in_group("enemies"):
+	for node in _nodes_in_group("enemies"):
 		if not is_instance_valid(node):
 			continue
 		var dist := from.distance_to((node as Node2D).global_position)
@@ -1809,7 +1816,7 @@ func _nearest_work_site_in_range(
 	var best: Node2D = null
 	var best_dist := radius
 	for group_name in groups:
-		for node in get_tree().get_nodes_in_group(group_name):
+		for node in _nodes_in_group(group_name):
 			if not is_instance_valid(node):
 				continue
 			if "explored" in node and not bool(node.explored):
@@ -1838,7 +1845,7 @@ func _nearest_unscanned_site_in_range(from: Vector2, radius: float) -> Node2D:
 	var best: Node2D = null
 	var best_dist := radius
 	for group_name in ["asteroids", "asteroid_clusters", "derelicts", "wreck_sites"]:
-		for node in get_tree().get_nodes_in_group(group_name):
+		for node in _nodes_in_group(group_name):
 			if not is_instance_valid(node) or not (node is Node2D):
 				continue
 			if "explored" in node and bool(node.explored):

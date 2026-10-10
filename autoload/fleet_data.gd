@@ -1725,6 +1725,11 @@ func _tick_bay_ops(delta: float) -> void:
 				hangar_roster[i] = entry
 				## Idle hangar craft hold no crew — pool refills on next launch.
 				release_craft_crew(uid)
+				## Clear the landing pad — roll into Main (or Storage) when free.
+				if _queue_stow_from_landing(uid):
+					entry = get_craft_entry(uid)
+					if not entry.is_empty():
+						hangar_roster[i] = entry
 			OP_RESUPPLY:
 				entry["supplies"] = 1.0
 				entry["op"] = ""
@@ -1748,6 +1753,10 @@ func _tick_bay_ops(delta: float) -> void:
 				entry["op_duration"] = 0.0
 				hangar_roster[i] = entry
 		i += 1
+	## Stuck / waiting landers — stow whenever Main/Storage frees up.
+	if _stow_idle_landers():
+		dirty = true
+		finished = true
 	if not dirty:
 		return
 	var bucket := 0
@@ -1762,6 +1771,42 @@ func _tick_bay_ops(delta: float) -> void:
 	_op_ui_bucket = bucket
 	fleet_changed.emit()
 	ShipData.loadout_changed.emit()
+
+
+## After landing (or when a bay frees), move craft off the landing pads.
+func _queue_stow_from_landing(uid: String) -> bool:
+	var entry := get_craft_entry(uid)
+	if entry.is_empty():
+		return false
+	if str(entry.get("bay", "")) != BAY_LANDING:
+		return false
+	if str(entry.get("op", "")) != "":
+		return false
+	var dest := ""
+	if get_bay_free(BAY_MAIN) > 0:
+		dest = BAY_MAIN
+	elif get_bay_free(BAY_STORAGE) > 0:
+		dest = BAY_STORAGE
+	else:
+		return false
+	return transfer_craft(uid, dest)
+
+
+func _stow_idle_landers() -> bool:
+	var any := false
+	for entry in hangar_roster.duplicate():
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var uid := str(entry.get("uid", ""))
+		if uid == "":
+			continue
+		if str(entry.get("bay", "")) != BAY_LANDING:
+			continue
+		if str(entry.get("op", "")) != "":
+			continue
+		if _queue_stow_from_landing(uid):
+			any = true
+	return any
 
 
 func _tick_maintenance_repair(delta: float) -> void:

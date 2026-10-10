@@ -35,6 +35,8 @@ const ROLE_GLYPH_COLORS := {
 var _selected_uid: String = ""
 var _active_bay: String = FleetData.BAY_MAIN
 var _refresh_queued := false
+var _bay_content_fingerprint := ""
+var _build_fingerprint := ""
 
 
 func _ready() -> void:
@@ -42,7 +44,8 @@ func _ready() -> void:
 	_hint.text = "Assemble craft · move to Launching · crews auto-fill when teams need them / on launch."
 	ShipData.loadout_changed.connect(_request_refresh)
 	FleetData.fleet_changed.connect(_request_refresh)
-	CrewData.crew_changed.connect(_request_refresh)
+	## Crew churn must not tear down bay tabs mid-click.
+	CrewData.crew_changed.connect(_refresh_status)
 	_refresh_all()
 
 
@@ -62,9 +65,9 @@ func _refresh_all() -> void:
 	_ensure_selection()
 	_refresh_status()
 	_refresh_traffic()
-	_rebuild_bay_tabs()
-	_rebuild_build_row()
-	_rebuild_active_bay()
+	_sync_bay_tabs()
+	_rebuild_build_row_if_needed()
+	_rebuild_active_bay_if_needed()
 
 
 func _ensure_selection() -> void:
@@ -142,34 +145,88 @@ func _traffic_craft_label(entry: Dictionary, is_launch: bool) -> String:
 	elif is_launch and FleetData.can_start_launch(uid):
 		state = "ready"
 	elif not is_launch:
-		state = "docked"
+		state = "waiting for bay"
 	var who := type_name if callsign == "" else "%s (%s)" % [type_name, callsign]
 	if pad > 0:
 		return "P%d %s — %s" % [pad, who, state]
 	return "%s — %s" % [who, state]
 
 
-func _rebuild_bay_tabs() -> void:
-	for child in _bay_tabs.get_children():
-		_bay_tabs.remove_child(child)
-		child.queue_free()
-	for bay in FleetData.BAY_ORDER:
-		var btn := Button.new()
-		btn.toggle_mode = true
-		btn.button_pressed = bay == _active_bay
+func _sync_bay_tabs() -> void:
+	## Keep the same Button nodes alive so clicks aren't cancelled by fleet ticks.
+	if _bay_tabs.get_child_count() != FleetData.BAY_ORDER.size():
+		for child in _bay_tabs.get_children():
+			_bay_tabs.remove_child(child)
+			child.queue_free()
+		for bay in FleetData.BAY_ORDER:
+			var btn := Button.new()
+			btn.toggle_mode = true
+			btn.focus_mode = Control.FOCUS_NONE
+			btn.pressed.connect(_on_bay_tab.bind(bay))
+			_bay_tabs.add_child(btn)
+	for i in FleetData.BAY_ORDER.size():
+		var bay: String = FleetData.BAY_ORDER[i]
+		var btn := _bay_tabs.get_child(i) as Button
+		if btn == null:
+			continue
 		btn.text = "%s %d/%d" % [
 			str(BAY_LABELS.get(bay, bay)),
 			FleetData.get_bay_used(bay),
 			FleetData.get_bay_capacity(bay),
 		]
-		btn.focus_mode = Control.FOCUS_NONE
-		btn.pressed.connect(_on_bay_tab.bind(bay))
-		_bay_tabs.add_child(btn)
+		btn.set_pressed_no_signal(bay == _active_bay)
 
 
 func _on_bay_tab(bay: String) -> void:
+	if _active_bay == bay:
+		return
 	_active_bay = bay
-	_refresh_all()
+	_bay_content_fingerprint = ""
+	_sync_bay_tabs()
+	_ensure_selection()
+	_rebuild_active_bay_if_needed()
+
+
+func _build_row_fingerprint() -> String:
+	var bits: PackedStringArray = [str(int(ShipData.get_resources()))]
+	for craft_id in FleetData.CRAFT_ORDER:
+		bits.append("%s:%d" % [craft_id, 1 if FleetData.can_build(craft_id) else 0])
+	return "|".join(bits)
+
+
+func _rebuild_build_row_if_needed() -> void:
+	var fp := _build_row_fingerprint()
+	if fp == _build_fingerprint and _build_row.get_child_count() == FleetData.CRAFT_ORDER.size():
+		return
+	_build_fingerprint = fp
+	_rebuild_build_row()
+
+
+func _bay_content_fp() -> String:
+	var bits: PackedStringArray = [_active_bay, _selected_uid]
+	for entry in FleetData.get_roster_in_bay(_active_bay):
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var uid := str(entry.get("uid", ""))
+		bits.append("%s:%s:%d:%d:%d" % [
+			uid,
+			str(entry.get("op", "")),
+			int(entry.get("pad", -1)),
+			int(FleetData.get_craft_op_progress(uid) * 10.0),
+			int(entry.get("crew", 0)),
+		])
+	## Empty pads still matter for launch/land views.
+	if _active_bay == FleetData.BAY_LAUNCHING or _active_bay == FleetData.BAY_LANDING:
+		bits.append("pads:%d" % FleetData.get_bay_capacity(_active_bay))
+	return "|".join(bits)
+
+
+func _rebuild_active_bay_if_needed() -> void:
+	var fp := _bay_content_fp()
+	if fp == _bay_content_fingerprint and _bay_grid.get_child_count() > 0:
+		return
+	_bay_content_fingerprint = fp
+	_rebuild_active_bay()
 
 
 func _rebuild_build_row() -> void:
@@ -310,8 +367,8 @@ func _make_pad_card(slot: int, bay: String) -> PanelContainer:
 					Color(0.55, 0.9, 0.65, 1) if FleetData.can_start_launch(uid) else Color(0.95, 0.65, 0.45, 1)
 				)
 			else:
-				status.text = "Landed"
-				status.add_theme_color_override("font_color", Color(0.75, 0.85, 0.98, 1))
+				status.text = "Waiting for Main/Storage" if bay == FleetData.BAY_LANDING else "On pad"
+				status.add_theme_color_override("font_color", Color(0.95, 0.8, 0.45, 1) if bay == FleetData.BAY_LANDING else Color(0.75, 0.85, 0.98, 1))
 	col.add_child(status)
 	col.add_child(_make_transfer_row(uid))
 	if op == "" and bay == FleetData.BAY_LAUNCHING and FleetData.can_start_launch(uid):

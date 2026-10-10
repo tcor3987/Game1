@@ -46,7 +46,7 @@ const LONG_SCAN_RANGE_MULT := 2.25
 const LONG_SCAN_RATE_MULT := 0.55
 
 ## Interaction range is fixed at max — players cannot edit it.
-const MAX_RANGE := 720.0
+const MAX_RANGE := 180.0
 const DEFAULT_RANGE := MAX_RANGE
 const MIN_RANGE := MAX_RANGE
 const LEAVE_HP_RATIO := 0.25
