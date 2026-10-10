@@ -1,15 +1,5 @@
 extends Control
 
-const CHASSIS_COLORS := {
-	"small": Color(0.45, 0.95, 0.75),
-	"medium": Color(0.55, 0.8, 0.95),
-	"large": Color(0.85, 0.55, 0.4),
-}
-const CHASSIS_GLYPHS := {
-	"small": "S",
-	"medium": "M",
-	"large": "L",
-}
 const BAY_LABELS := {
 	FleetData.BAY_STORAGE: "Storage",
 	FleetData.BAY_MAIN: "Main",
@@ -18,27 +8,44 @@ const BAY_LABELS := {
 	FleetData.BAY_LANDING: "Landing",
 }
 
+const ROLE_GLYPH_COLORS := {
+	"combat": Color(0.95, 0.45, 0.4, 1),
+	"combat_shuttle": Color(0.95, 0.55, 0.35, 1),
+	"mining": Color(0.95, 0.82, 0.35, 1),
+	"salvage": Color(0.65, 0.85, 0.55, 1),
+	"cargo": Color(0.55, 0.72, 0.95, 1),
+	"ore_hauler": Color(0.7, 0.78, 0.45, 1),
+	"fuel": Color(0.85, 0.7, 0.4, 1),
+	"ammo": Color(0.9, 0.55, 0.45, 1),
+	"passenger": Color(0.5, 0.85, 0.95, 1),
+	"transport": Color(0.5, 0.85, 0.95, 1),
+	"expedition": Color(0.75, 0.65, 0.95, 1),
+	"scout": Color(0.55, 0.95, 0.85, 1),
+}
+
 @onready var _title: Label = %Title
 @onready var _status: Label = %StatusLabel
 @onready var _bay_tabs: HBoxContainer = %BayTabs
 @onready var _build_row: HBoxContainer = %BuildRow
+@onready var _stores: Label = %StoresLabel
 @onready var _bay_header: Label = %BayHeader
 @onready var _bay_grid: GridContainer = %BayGrid
-@onready var _details_body: VBoxContainer = %DetailsBody
 @onready var _hint: Label = %HintLabel
 
 var _selected_uid: String = ""
 var _active_bay: String = FleetData.BAY_MAIN
 var _refresh_queued := false
-var _refit_slot: String = ""
+var _bay_content_fingerprint := ""
+var _build_fingerprint := ""
 
 
 func _ready() -> void:
 	_title.text = "Hangar"
-	_hint.text = "Main: crew + hardpoint refit. Launching → space. Landing ← recall. Storage cold. Maintenance repairs."
+	_hint.text = "Assemble craft · move to Launching · crews auto-fill when teams need them / on launch."
 	ShipData.loadout_changed.connect(_request_refresh)
 	FleetData.fleet_changed.connect(_request_refresh)
-	CrewData.crew_changed.connect(_request_refresh)
+	## Crew churn must not tear down bay tabs mid-click.
+	CrewData.crew_changed.connect(_refresh_status)
 	_refresh_all()
 
 
@@ -57,10 +64,10 @@ func _run_deferred_refresh() -> void:
 func _refresh_all() -> void:
 	_ensure_selection()
 	_refresh_status()
-	_rebuild_bay_tabs()
-	_rebuild_build_row()
-	_rebuild_active_bay()
-	_refresh_details()
+	_refresh_traffic()
+	_sync_bay_tabs()
+	_rebuild_build_row_if_needed()
+	_rebuild_active_bay_if_needed()
 
 
 func _ensure_selection() -> void:
@@ -94,50 +101,155 @@ func _refresh_status() -> void:
 	)
 
 
-func _rebuild_bay_tabs() -> void:
-	for child in _bay_tabs.get_children():
-		_bay_tabs.remove_child(child)
-		child.queue_free()
-	for bay in FleetData.BAY_ORDER:
-		var btn := Button.new()
-		btn.toggle_mode = true
-		btn.button_pressed = bay == _active_bay
+func _refresh_traffic() -> void:
+	## Always-visible launch/land board so traffic is clear from any bay tab.
+	var launch_bits: PackedStringArray = []
+	var land_bits: PackedStringArray = []
+	for entry in FleetData.get_roster_in_bay(FleetData.BAY_LAUNCHING):
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		launch_bits.append(_traffic_craft_label(entry, true))
+	for entry in FleetData.get_roster_in_bay(FleetData.BAY_LANDING):
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		land_bits.append(_traffic_craft_label(entry, false))
+	var lines: PackedStringArray = []
+	if launch_bits.is_empty():
+		lines.append("Launching: clear")
+	else:
+		lines.append("Launching: " + " · ".join(launch_bits))
+	if land_bits.is_empty():
+		lines.append("Landing: clear")
+	else:
+		lines.append("Landing: " + " · ".join(land_bits))
+	_stores.visible = true
+	_stores.text = "\n".join(lines)
+
+
+func _traffic_craft_label(entry: Dictionary, is_launch: bool) -> String:
+	var craft_id := FleetData.normalize_craft_id(str(entry.get("craft_id", "")))
+	var type_name := str(FleetData.get_strike_def(craft_id).get("name", craft_id))
+	var callsign := str(entry.get("callsign", ""))
+	var pad := int(entry.get("pad", -1)) + 1
+	var op := str(entry.get("op", ""))
+	var uid := str(entry.get("uid", ""))
+	var state := "ready"
+	if op == FleetData.OP_LAUNCH:
+		state = "launching %.0fs" % ceilf(FleetData.get_craft_op_remaining(uid))
+	elif op == FleetData.OP_LAND:
+		state = "landing %.0fs" % ceilf(FleetData.get_craft_op_remaining(uid))
+	elif op == FleetData.OP_TRANSFER:
+		state = "moving %.0fs" % ceilf(FleetData.get_craft_op_remaining(uid))
+	elif op != "":
+		state = "%s %.0fs" % [op, ceilf(FleetData.get_craft_op_remaining(uid))]
+	elif is_launch and FleetData.can_start_launch(uid):
+		state = "ready"
+	elif not is_launch:
+		state = "waiting for bay"
+	var who := type_name if callsign == "" else "%s (%s)" % [type_name, callsign]
+	if pad > 0:
+		return "P%d %s — %s" % [pad, who, state]
+	return "%s — %s" % [who, state]
+
+
+func _sync_bay_tabs() -> void:
+	## Keep the same Button nodes alive so clicks aren't cancelled by fleet ticks.
+	if _bay_tabs.get_child_count() != FleetData.BAY_ORDER.size():
+		for child in _bay_tabs.get_children():
+			_bay_tabs.remove_child(child)
+			child.queue_free()
+		for bay in FleetData.BAY_ORDER:
+			var btn := Button.new()
+			btn.toggle_mode = true
+			btn.focus_mode = Control.FOCUS_NONE
+			btn.pressed.connect(_on_bay_tab.bind(bay))
+			_bay_tabs.add_child(btn)
+	for i in FleetData.BAY_ORDER.size():
+		var bay: String = FleetData.BAY_ORDER[i]
+		var btn := _bay_tabs.get_child(i) as Button
+		if btn == null:
+			continue
 		btn.text = "%s %d/%d" % [
 			str(BAY_LABELS.get(bay, bay)),
 			FleetData.get_bay_used(bay),
 			FleetData.get_bay_capacity(bay),
 		]
-		btn.focus_mode = Control.FOCUS_NONE
-		btn.pressed.connect(_on_bay_tab.bind(bay))
-		_bay_tabs.add_child(btn)
+		btn.set_pressed_no_signal(bay == _active_bay)
 
 
 func _on_bay_tab(bay: String) -> void:
+	if _active_bay == bay:
+		return
 	_active_bay = bay
-	_refit_slot = ""
-	_refresh_all()
+	_bay_content_fingerprint = ""
+	_sync_bay_tabs()
+	_ensure_selection()
+	_rebuild_active_bay_if_needed()
+
+
+func _build_row_fingerprint() -> String:
+	var bits: PackedStringArray = [str(int(ShipData.get_resources()))]
+	for craft_id in FleetData.CRAFT_ORDER:
+		bits.append("%s:%d" % [craft_id, 1 if FleetData.can_build(craft_id) else 0])
+	return "|".join(bits)
+
+
+func _rebuild_build_row_if_needed() -> void:
+	var fp := _build_row_fingerprint()
+	if fp == _build_fingerprint and _build_row.get_child_count() == FleetData.CRAFT_ORDER.size():
+		return
+	_build_fingerprint = fp
+	_rebuild_build_row()
+
+
+func _bay_content_fp() -> String:
+	var bits: PackedStringArray = [_active_bay, _selected_uid]
+	for entry in FleetData.get_roster_in_bay(_active_bay):
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var uid := str(entry.get("uid", ""))
+		bits.append("%s:%s:%d:%d:%d" % [
+			uid,
+			str(entry.get("op", "")),
+			int(entry.get("pad", -1)),
+			int(FleetData.get_craft_op_progress(uid) * 10.0),
+			int(entry.get("crew", 0)),
+		])
+	## Empty pads still matter for launch/land views.
+	if _active_bay == FleetData.BAY_LAUNCHING or _active_bay == FleetData.BAY_LANDING:
+		bits.append("pads:%d" % FleetData.get_bay_capacity(_active_bay))
+	return "|".join(bits)
+
+
+func _rebuild_active_bay_if_needed() -> void:
+	var fp := _bay_content_fp()
+	if fp == _bay_content_fingerprint and _bay_grid.get_child_count() > 0:
+		return
+	_bay_content_fingerprint = fp
+	_rebuild_active_bay()
 
 
 func _rebuild_build_row() -> void:
 	for child in _build_row.get_children():
 		_build_row.remove_child(child)
 		child.queue_free()
-	for chassis_id in FleetData.CHASSIS_ORDER:
-		_build_row.add_child(_make_assemble_button(chassis_id))
+	for craft_id in FleetData.CRAFT_ORDER:
+		_build_row.add_child(_make_assemble_button(craft_id))
 
 
-func _make_assemble_button(chassis_id: String) -> Button:
-	var def := FleetData.get_chassis_def(chassis_id)
+func _make_assemble_button(craft_id: String) -> Button:
+	var def := FleetData.get_strike_def(craft_id)
 	var btn := Button.new()
 	btn.custom_minimum_size = Vector2(56, 56)
-	btn.disabled = not FleetData.can_build(chassis_id)
-	btn.tooltip_text = "Assemble %s\n%d res · %.0fs" % [
-		str(def.get("name", chassis_id)),
-		int(FleetData.get_resource_cost(chassis_id)),
-		FleetData.get_build_time(chassis_id),
+	btn.disabled = not FleetData.can_build(craft_id)
+	btn.tooltip_text = "Assemble %s\n%d res · %.0fs · %d bay slots" % [
+		str(def.get("name", craft_id)),
+		int(FleetData.get_resource_cost(craft_id)),
+		FleetData.get_build_time(craft_id),
+		int(def.get("hangar_cost", 1)),
 	]
 	btn.pressed.connect(func() -> void:
-		var uid := FleetData.build_craft(chassis_id)
+		var uid := FleetData.build_craft(craft_id)
 		if uid != "":
 			_selected_uid = uid
 			_active_bay = FleetData.get_craft_bay(uid)
@@ -147,20 +259,9 @@ func _make_assemble_button(chassis_id: String) -> Button:
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	btn.add_child(center)
-	var icon := ColorRect.new()
-	icon.custom_minimum_size = Vector2(40, 40)
-	icon.color = CHASSIS_COLORS.get(chassis_id, Color(0.6, 0.6, 0.75))
+	var icon := _make_craft_glyph(craft_id, 40.0)
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	center.add_child(icon)
-	var glyph := Label.new()
-	glyph.text = str(CHASSIS_GLYPHS.get(chassis_id, "?"))
-	glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	glyph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	glyph.add_theme_font_size_override("font_size", 18)
-	glyph.add_theme_color_override("font_color", Color(0.08, 0.06, 0.12, 1))
-	glyph.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon.add_child(glyph)
 	return btn
 
 
@@ -174,7 +275,7 @@ func _rebuild_active_bay() -> void:
 		for slot in FleetData.get_bay_capacity(_active_bay):
 			_bay_grid.add_child(_make_pad_card(slot, _active_bay))
 		return
-	_bay_grid.columns = 4 if _active_bay != FleetData.BAY_MAIN else 3
+	_bay_grid.columns = 2 if _active_bay == FleetData.BAY_MAIN else 4
 	var roster := FleetData.get_roster_in_bay(_active_bay)
 	if roster.is_empty():
 		var empty := Label.new()
@@ -200,66 +301,123 @@ func _make_pad_card(slot: int, bay: String) -> PanelContainer:
 	var uid := str(entry.get("uid", ""))
 	var selected := uid != "" and uid == _selected_uid
 	var card := PanelContainer.new()
-	card.custom_minimum_size = Vector2(120, 100)
+	card.custom_minimum_size = Vector2(140, 168)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var style := _card_style(selected)
-	card.add_theme_stylebox_override("panel", style)
+	card.add_theme_stylebox_override("panel", _card_style(selected))
 	if uid != "":
 		card.gui_input.connect(_on_card_gui.bind(uid))
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 4)
 	card.add_child(col)
-	var title := Label.new()
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 12)
 	var prefix := "Launch" if bay == FleetData.BAY_LAUNCHING else "Land"
+	var pad_l := Label.new()
+	pad_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pad_l.add_theme_font_size_override("font_size", 11)
+	pad_l.text = "%s pad %d" % [prefix, slot + 1]
+	pad_l.add_theme_color_override("font_color", Color(0.7, 0.78, 0.92, 1))
+	col.add_child(pad_l)
 	if entry.is_empty():
-		title.text = "%s %d\nEmpty" % [prefix, slot + 1]
-		title.add_theme_color_override("font_color", Color(0.55, 0.6, 0.7, 1))
-	else:
-		title.text = "%s %d\n%s" % [prefix, slot + 1, str(entry.get("callsign", "?"))]
-		title.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0, 1))
-	col.add_child(title)
-	if uid != "":
-		var op := str(entry.get("op", ""))
-		if op != "":
-			var status := Label.new()
-			status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			status.add_theme_font_size_override("font_size", 11)
-			status.text = "%s %.0fs" % [op.capitalize(), ceilf(FleetData.get_craft_op_remaining(uid))]
+		var empty := Label.new()
+		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty.add_theme_font_size_override("font_size", 12)
+		empty.text = "Empty"
+		empty.add_theme_color_override("font_color", Color(0.55, 0.6, 0.7, 1))
+		col.add_child(empty)
+		return card
+
+	var craft_id := FleetData.normalize_craft_id(str(entry.get("craft_id", "")))
+	var def := FleetData.get_strike_def(craft_id)
+	col.add_child(_make_craft_glyph(craft_id, 44.0))
+	var type_l := Label.new()
+	type_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	type_l.add_theme_font_size_override("font_size", 12)
+	type_l.text = str(def.get("name", craft_id))
+	type_l.add_theme_color_override("font_color", Color(0.95, 0.92, 1.0, 1))
+	col.add_child(type_l)
+	var call_l := Label.new()
+	call_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	call_l.add_theme_font_size_override("font_size", 10)
+	call_l.text = str(entry.get("callsign", ""))
+	call_l.add_theme_color_override("font_color", Color(0.75, 0.85, 0.98, 1))
+	col.add_child(call_l)
+
+	var op := str(entry.get("op", ""))
+	var status := Label.new()
+	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	status.add_theme_font_size_override("font_size", 11)
+	var remain := ceilf(FleetData.get_craft_op_remaining(uid))
+	var progress := FleetData.get_craft_op_progress(uid)
+	match op:
+		FleetData.OP_LAUNCH:
+			status.text = "Launching %d%% · %.0fs" % [int(round(progress * 100.0)), remain]
+			status.add_theme_color_override("font_color", Color(0.45, 0.9, 0.65, 1))
+		FleetData.OP_LAND:
+			status.text = "Landing %d%% · %.0fs" % [int(round(progress * 100.0)), remain]
+			status.add_theme_color_override("font_color", Color(0.55, 0.8, 1.0, 1))
+		FleetData.OP_TRANSFER:
+			status.text = "Arriving %.0fs" % remain
 			status.add_theme_color_override("font_color", Color(0.95, 0.8, 0.45, 1))
-			col.add_child(status)
-		elif bay == FleetData.BAY_LAUNCHING and FleetData.can_start_launch(uid):
-			var btn := Button.new()
-			btn.text = "Launch"
-			btn.focus_mode = Control.FOCUS_NONE
-			btn.pressed.connect(func() -> void:
-				FleetData.launch_craft_uid(uid)
-				_request_refresh()
-			)
-			col.add_child(btn)
+		_:
+			if bay == FleetData.BAY_LAUNCHING:
+				status.text = "Ready to launch" if FleetData.can_start_launch(uid) else (
+					FleetData.get_launch_block_reason_uid(uid) if FleetData.get_launch_block_reason_uid(uid) != "" else "On pad"
+				)
+				status.add_theme_color_override(
+					"font_color",
+					Color(0.55, 0.9, 0.65, 1) if FleetData.can_start_launch(uid) else Color(0.95, 0.65, 0.45, 1)
+				)
+			else:
+				status.text = "Waiting for Main/Storage" if bay == FleetData.BAY_LANDING else "On pad"
+				status.add_theme_color_override("font_color", Color(0.95, 0.8, 0.45, 1) if bay == FleetData.BAY_LANDING else Color(0.75, 0.85, 0.98, 1))
+	col.add_child(status)
+	col.add_child(_make_transfer_row(uid))
+	if op == "" and bay == FleetData.BAY_LAUNCHING and FleetData.can_start_launch(uid):
+		var btn := Button.new()
+		btn.text = "Launch"
+		btn.focus_mode = Control.FOCUS_NONE
+		btn.pressed.connect(func() -> void:
+			FleetData.launch_craft_uid(uid)
+			_request_refresh()
+		)
+		col.add_child(btn)
 	return card
 
 
 func _make_compact_card(entry: Dictionary) -> PanelContainer:
 	var uid := str(entry.get("uid", ""))
-	var chassis := str(entry.get("chassis_id", entry.get("craft_id", "")))
+	var craft_id := str(entry.get("craft_id", ""))
 	var selected := uid == _selected_uid
 	var card := PanelContainer.new()
-	card.custom_minimum_size = Vector2(100, 90)
+	card.custom_minimum_size = Vector2(110, 120)
 	card.add_theme_stylebox_override("panel", _card_style(selected))
 	card.gui_input.connect(_on_card_gui.bind(uid))
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 3)
 	card.add_child(col)
-	var icon := _make_chassis_icon(chassis, 36)
-	col.add_child(icon)
+	col.add_child(_make_craft_glyph(craft_id, 40.0))
 	var name_l := Label.new()
-	name_l.text = str(entry.get("callsign", chassis))
+	name_l.text = str(entry.get("callsign", craft_id))
 	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_l.add_theme_font_size_override("font_size", 11)
 	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(name_l)
+	var role := FleetData.get_entry_role(entry)
+	var role_l := Label.new()
+	role_l.text = role.capitalize() if role != "" else craft_id.capitalize()
+	role_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	role_l.add_theme_font_size_override("font_size", 10)
+	role_l.add_theme_color_override("font_color", Color(0.75, 0.85, 0.95, 1))
+	col.add_child(role_l)
+	col.add_child(_make_transfer_row(uid))
+	if _active_bay == FleetData.BAY_MAINTENANCE and FleetData.can_start_maintenance(uid):
+		var maint := Button.new()
+		maint.text = "Maintain"
+		maint.focus_mode = Control.FOCUS_NONE
+		maint.pressed.connect(func() -> void:
+			FleetData.start_maintenance(uid)
+			_request_refresh()
+		)
+		col.add_child(maint)
 	var op := str(entry.get("op", ""))
 	if op != "" or not bool(entry.get("assembled", true)):
 		var meta := Label.new()
@@ -278,75 +436,114 @@ func _make_compact_card(entry: Dictionary) -> PanelContainer:
 
 func _make_main_card(entry: Dictionary) -> PanelContainer:
 	var uid := str(entry.get("uid", ""))
-	var chassis := str(entry.get("chassis_id", entry.get("craft_id", "")))
+	var craft_id := str(entry.get("craft_id", ""))
 	var selected := uid == _selected_uid
 	var card := PanelContainer.new()
-	card.custom_minimum_size = Vector2(160, 200)
+	card.custom_minimum_size = Vector2(280, 220)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card.add_theme_stylebox_override("panel", _card_style(selected))
 	card.gui_input.connect(_on_card_gui.bind(uid))
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 4)
 	card.add_child(col)
-	col.add_child(_make_chassis_icon(chassis, 44))
+
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 8)
+	col.add_child(head)
+	head.add_child(_make_craft_glyph(craft_id, 64.0))
+	head.add_child(_make_transfer_grid(uid))
+	var head_col := VBoxContainer.new()
+	head_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(head_col)
 	var name_l := Label.new()
-	name_l.text = str(entry.get("callsign", chassis))
-	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_l.add_theme_font_size_override("font_size", 13)
-	col.add_child(name_l)
-	var caps := FleetData.get_entry_caps(entry)
-	var bits: PackedStringArray = []
-	if bool(caps.get("can_explore", false)):
-		bits.append("Explore")
-	if bool(caps.get("can_mine", false)):
-		bits.append("Mine")
-	if bool(caps.get("can_salvage", false)):
-		bits.append("Salvage")
-	if bool(caps.get("can_haul_ore", false)) or bool(caps.get("can_haul_scrap", false)):
-		bits.append("Haul")
-	if bool(caps.get("boarding", false)):
-		bits.append("Pax %d" % int(caps.get("passenger_capacity", 0)))
-	if bool(caps.get("combat", false)):
-		bits.append("Gun")
-	var cap_l := Label.new()
-	cap_l.text = " · ".join(bits) if not bits.is_empty() else "Unfitted"
-	cap_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	cap_l.add_theme_font_size_override("font_size", 10)
-	cap_l.add_theme_color_override("font_color", Color(0.75, 0.85, 0.95, 1))
-	cap_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	col.add_child(cap_l)
-	col.add_child(_make_crew_row(uid))
-	if FleetData.is_boarding_entry(entry):
-		col.add_child(_make_pax_row(uid))
+	name_l.text = str(entry.get("callsign", craft_id))
+	name_l.add_theme_font_size_override("font_size", 14)
+	head_col.add_child(name_l)
+	var def := FleetData.get_strike_def(craft_id)
+	var role_l := Label.new()
+	role_l.text = "%s · %s" % [str(def.get("name", craft_id)), FleetData.get_entry_role(entry).capitalize()]
+	role_l.add_theme_font_size_override("font_size", 11)
+	role_l.add_theme_color_override("font_color", Color(0.8, 0.9, 1.0, 1))
+	head_col.add_child(role_l)
+	var meta_l := Label.new()
+	meta_l.text = "Maint %.0f%% · Supplies %.0f%%" % [
+		FleetData.clamp_maintenance(float(entry.get("maintenance", 1.0))) * 100.0,
+		FleetData.clamp_supplies(float(entry.get("supplies", 1.0))) * 100.0,
+	]
+	meta_l.add_theme_font_size_override("font_size", 10)
+	meta_l.add_theme_color_override("font_color", Color(0.7, 0.78, 0.9, 1))
+	head_col.add_child(meta_l)
+
+	col.add_child(_make_crew_status(uid))
+
+	if FleetData.can_start_disassemble(uid):
+		var scrap_btn := Button.new()
+		scrap_btn.text = "Disassemble"
+		scrap_btn.focus_mode = Control.FOCUS_NONE
+		scrap_btn.pressed.connect(func() -> void:
+			FleetData.start_disassemble(uid)
+			_selected_uid = ""
+			_request_refresh()
+		)
+		col.add_child(scrap_btn)
+
 	var op := str(entry.get("op", ""))
 	if op != "" or not bool(entry.get("assembled", true)):
-		var meta := Label.new()
-		meta.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		meta.add_theme_font_size_override("font_size", 11)
+		var busy := Label.new()
+		busy.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		busy.add_theme_font_size_override("font_size", 11)
 		if op != "":
-			meta.text = "%s %.0fs" % [op.capitalize(), ceilf(FleetData.get_craft_op_remaining(uid))]
+			busy.text = "%s %.0fs" % [op.capitalize(), ceilf(FleetData.get_craft_op_remaining(uid))]
 		else:
-			meta.text = "Assembling…"
-		meta.add_theme_color_override("font_color", Color(0.95, 0.8, 0.45, 1))
-		col.add_child(meta)
+			busy.text = "Assembling…"
+		busy.add_theme_color_override("font_color", Color(0.95, 0.8, 0.45, 1))
+		col.add_child(busy)
 	return card
 
 
-func _make_chassis_icon(chassis_id: String, size: float) -> CenterContainer:
-	var host := CenterContainer.new()
-	host.custom_minimum_size = Vector2(0, size)
-	var icon := ColorRect.new()
-	icon.custom_minimum_size = Vector2(size, size)
-	icon.color = CHASSIS_COLORS.get(chassis_id, Color(0.6, 0.6, 0.75))
-	host.add_child(icon)
-	var glyph := Label.new()
-	glyph.text = str(CHASSIS_GLYPHS.get(chassis_id, "?"))
-	glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	glyph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	glyph.add_theme_font_size_override("font_size", int(size * 0.45))
-	glyph.add_theme_color_override("font_color", Color(0.08, 0.06, 0.12, 1))
-	glyph.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	icon.add_child(glyph)
-	return host
+func _make_transfer_grid(uid: String) -> GridContainer:
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 4)
+	grid.add_theme_constant_override("v_separation", 4)
+	for bay in FleetData.get_transfer_targets(uid):
+		grid.add_child(_make_transfer_button(uid, bay))
+	return grid
+
+
+func _make_transfer_row(uid: String) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	for bay in FleetData.get_transfer_targets(uid):
+		row.add_child(_make_transfer_button(uid, bay))
+	return row
+
+
+func _make_transfer_button(uid: String, bay: String) -> Button:
+	var btn := Button.new()
+	btn.text = str(BAY_LABELS.get(bay, bay))
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.custom_minimum_size = Vector2(72, 26)
+	btn.add_theme_font_size_override("font_size", 11)
+	btn.tooltip_text = "Transfer to %s" % str(BAY_LABELS.get(bay, bay))
+	btn.pressed.connect(func() -> void:
+		FleetData.transfer_craft(uid, bay)
+		_active_bay = bay
+		_request_refresh()
+	)
+	return btn
+
+
+func _make_craft_glyph(craft_id: String, size: float) -> Control:
+	var wrap := CenterContainer.new()
+	wrap.custom_minimum_size = Vector2(size, size)
+	var glyph := ColorRect.new()
+	glyph.custom_minimum_size = Vector2(size * 0.75, size * 0.55)
+	var role := FleetData.get_craft_role(craft_id)
+	glyph.color = ROLE_GLYPH_COLORS.get(role, Color(0.6, 0.65, 0.75, 1))
+	wrap.add_child(glyph)
+	return wrap
 
 
 func _card_style(selected: bool) -> StyleBoxFlat:
@@ -362,259 +559,24 @@ func _card_style(selected: bool) -> StyleBoxFlat:
 func _on_card_gui(uid: String, event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		_selected_uid = uid
-		_refit_slot = ""
 		_refresh_all()
 
 
-func _make_crew_row(uid: String) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 4)
-	var minus := Button.new()
-	minus.text = "−"
-	minus.custom_minimum_size = Vector2(28, 24)
-	minus.focus_mode = Control.FOCUS_NONE
-	minus.disabled = not FleetData.can_unassign_crew(uid)
-	minus.pressed.connect(func() -> void:
-		FleetData.unassign_crew_from_craft(uid)
-		_request_refresh()
-	)
-	row.add_child(minus)
-	var label := Label.new()
+func _make_crew_status(uid: String) -> Label:
 	var entry := FleetData.get_craft_entry(uid)
-	label.text = "Pilot %d" % int(entry.get("crew", 0))
-	label.add_theme_font_size_override("font_size", 11)
-	row.add_child(label)
-	var plus := Button.new()
-	plus.text = "+"
-	plus.custom_minimum_size = Vector2(28, 24)
-	plus.focus_mode = Control.FOCUS_NONE
-	plus.disabled = not FleetData.can_assign_crew(uid)
-	plus.pressed.connect(func() -> void:
-		FleetData.assign_crew_to_craft(uid)
-		_request_refresh()
-	)
-	row.add_child(plus)
-	return row
-
-
-func _make_pax_row(uid: String) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 4)
-	var minus := Button.new()
-	minus.text = "−"
-	minus.custom_minimum_size = Vector2(28, 24)
-	minus.focus_mode = Control.FOCUS_NONE
-	minus.disabled = not FleetData.can_unassign_passenger(uid)
-	minus.pressed.connect(func() -> void:
-		FleetData.unassign_passenger_from_craft(uid)
-		_request_refresh()
-	)
-	row.add_child(minus)
-	var entry := FleetData.get_craft_entry(uid)
+	var craft_id := str(entry.get("craft_id", ""))
+	var have := int(entry.get("crew", 0))
+	var need := FleetData.get_required_crew(craft_id)
 	var label := Label.new()
-	label.text = "Pax %d/%d" % [
-		int(entry.get("passengers", 0)),
-		FleetData.get_passenger_capacity_for_entry(entry),
-	]
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", 11)
-	row.add_child(label)
-	var plus := Button.new()
-	plus.text = "+"
-	plus.custom_minimum_size = Vector2(28, 24)
-	plus.focus_mode = Control.FOCUS_NONE
-	plus.disabled = not FleetData.can_assign_passenger(uid)
-	plus.pressed.connect(func() -> void:
-		FleetData.assign_passenger_to_craft(uid)
-		_request_refresh()
-	)
-	row.add_child(plus)
-	return row
-
-
-func _refresh_details() -> void:
-	for child in _details_body.get_children():
-		_details_body.remove_child(child)
-		child.queue_free()
-	var entry := FleetData.get_craft_entry(_selected_uid)
-	if entry.is_empty():
-		var empty := Label.new()
-		empty.text = "Select a craft."
-		empty.add_theme_color_override("font_color", Color(0.7, 0.78, 0.95, 1))
-		_details_body.add_child(empty)
-		return
-	var uid := _selected_uid
-	var chassis := str(entry.get("chassis_id", entry.get("craft_id", "")))
-	var title := Label.new()
-	title.text = "%s · %s" % [str(entry.get("callsign", "")), str(FleetData.get_chassis_def(chassis).get("name", chassis))]
-	title.add_theme_font_size_override("font_size", 16)
-	title.add_theme_color_override("font_color", Color(0.95, 0.92, 1.0, 1))
-	_details_body.add_child(title)
-	var bay_l := Label.new()
-	bay_l.text = "Bay: %s · Maint %.0f%% · Supplies %.0f%%" % [
-		str(BAY_LABELS.get(str(entry.get("bay", "")), entry.get("bay", ""))),
-		FleetData.clamp_maintenance(float(entry.get("maintenance", 1.0))) * 100.0,
-		FleetData.clamp_supplies(float(entry.get("supplies", 1.0))) * 100.0,
-	]
-	bay_l.add_theme_font_size_override("font_size", 12)
-	bay_l.add_theme_color_override("font_color", Color(0.75, 0.85, 0.95, 1))
-	_details_body.add_child(bay_l)
-
-	## Transfer buttons.
-	var transfer_row := HBoxContainer.new()
-	transfer_row.add_theme_constant_override("separation", 4)
-	transfer_row.alignment = BoxContainer.ALIGNMENT_BEGIN
-	for bay in FleetData.get_transfer_targets(uid):
-		var btn := Button.new()
-		btn.text = "→ %s" % str(BAY_LABELS.get(bay, bay))
-		btn.focus_mode = Control.FOCUS_NONE
-		btn.pressed.connect(func() -> void:
-			FleetData.transfer_craft(uid, bay)
-			_active_bay = bay
-			_request_refresh()
-		)
-		transfer_row.add_child(btn)
-	if transfer_row.get_child_count() > 0:
-		_details_body.add_child(transfer_row)
-
-	if str(entry.get("bay", "")) == FleetData.BAY_LAUNCHING and FleetData.can_start_launch(uid):
-		var launch_btn := Button.new()
-		launch_btn.text = "Launch"
-		launch_btn.focus_mode = Control.FOCUS_NONE
-		launch_btn.pressed.connect(func() -> void:
-			FleetData.launch_craft_uid(uid)
-			_request_refresh()
-		)
-		_details_body.add_child(launch_btn)
-
-	if str(entry.get("bay", "")) == FleetData.BAY_MAINTENANCE and FleetData.can_start_maintenance(uid):
-		var maint_btn := Button.new()
-		maint_btn.text = "Start maintenance"
-		maint_btn.focus_mode = Control.FOCUS_NONE
-		maint_btn.pressed.connect(func() -> void:
-			FleetData.start_maintenance(uid)
-			_request_refresh()
-		)
-		_details_body.add_child(maint_btn)
-
-	if FleetData.can_start_disassemble(uid):
-		var scrap_btn := Button.new()
-		scrap_btn.text = "Disassemble"
-		scrap_btn.focus_mode = Control.FOCUS_NONE
-		scrap_btn.pressed.connect(func() -> void:
-			FleetData.start_disassemble(uid)
-			_selected_uid = ""
-			_request_refresh()
-		)
-		_details_body.add_child(scrap_btn)
-
-	## Refit only in Main.
-	if str(entry.get("bay", "")) == FleetData.BAY_MAIN and FleetData.can_refit(uid):
-		var refit_header := Label.new()
-		refit_header.text = "Hardpoints"
-		refit_header.add_theme_font_size_override("font_size", 14)
-		refit_header.add_theme_color_override("font_color", Color(0.9, 0.85, 1.0, 1))
-		_details_body.add_child(refit_header)
-		var loadout: Dictionary = entry.get("loadout", {})
-		for slot_id in FleetData.get_chassis_slots(chassis):
-			_details_body.add_child(_make_slot_row(uid, slot_id, str(loadout.get(slot_id, ""))))
-		if _refit_slot != "":
-			_details_body.add_child(_make_module_picker(uid, _refit_slot))
-	elif str(entry.get("bay", "")) == FleetData.BAY_MAIN:
-		var note := Label.new()
-		note.text = "Finish assembly / clear busy op to refit."
-		note.add_theme_font_size_override("font_size", 12)
-		note.add_theme_color_override("font_color", Color(0.8, 0.7, 0.55, 1))
-		_details_body.add_child(note)
+	if have >= need and need > 0:
+		label.text = "Crew %d/%d · ready" % [have, need]
+		label.add_theme_color_override("font_color", Color(0.55, 0.9, 0.65, 1))
+	elif FleetData.can_auto_fill_crew(uid):
+		label.text = "Crew %d/%d · auto on launch" % [have, need]
+		label.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0, 1))
 	else:
-		var note := Label.new()
-		note.text = "Move to Main bay to seat crew and refit modules."
-		note.add_theme_font_size_override("font_size", 12)
-		note.add_theme_color_override("font_color", Color(0.75, 0.8, 0.95, 1))
-		_details_body.add_child(note)
-
-	## Module stock summary.
-	var stock := Label.new()
-	var bits: PackedStringArray = []
-	for module_id in FleetData.MODULE_ORDER:
-		var n := ShipData.get_module_count(module_id)
-		if n > 0:
-			bits.append("%s %d" % [str(FleetData.get_module_def(module_id).get("name", module_id)), n])
-	stock.text = "Stores: %s" % (" · ".join(bits) if not bits.is_empty() else "empty")
-	stock.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	stock.add_theme_font_size_override("font_size", 11)
-	stock.add_theme_color_override("font_color", Color(0.65, 0.75, 0.9, 1))
-	_details_body.add_child(stock)
-
-
-func _make_slot_row(uid: String, slot_id: String, module_id: String) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	var slot_l := Label.new()
-	slot_l.text = slot_id
-	slot_l.custom_minimum_size = Vector2(90, 0)
-	slot_l.add_theme_font_size_override("font_size", 12)
-	row.add_child(slot_l)
-	var mod_l := Label.new()
-	mod_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	if module_id == "":
-		mod_l.text = "(empty)"
-		mod_l.add_theme_color_override("font_color", Color(0.55, 0.6, 0.7, 1))
-	else:
-		mod_l.text = str(FleetData.get_module_def(module_id).get("name", module_id))
-		mod_l.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0, 1))
-	mod_l.add_theme_font_size_override("font_size", 12)
-	row.add_child(mod_l)
-	var fit_btn := Button.new()
-	fit_btn.text = "Fit"
-	fit_btn.focus_mode = Control.FOCUS_NONE
-	fit_btn.pressed.connect(func() -> void:
-		_refit_slot = slot_id
-		_refresh_details()
-	)
-	row.add_child(fit_btn)
-	if module_id != "":
-		var clear_btn := Button.new()
-		clear_btn.text = "Clear"
-		clear_btn.focus_mode = Control.FOCUS_NONE
-		clear_btn.pressed.connect(func() -> void:
-			FleetData.unequip_module(uid, slot_id)
-			_refit_slot = ""
-			_request_refresh()
-		)
-		row.add_child(clear_btn)
-	return row
-
-
-func _make_module_picker(uid: String, slot_id: String) -> VBoxContainer:
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 4)
-	var header := Label.new()
-	header.text = "Equip into %s" % slot_id
-	header.add_theme_font_size_override("font_size", 12)
-	header.add_theme_color_override("font_color", Color(0.85, 0.9, 1.0, 1))
-	box.add_child(header)
-	for module_id in FleetData.MODULE_ORDER:
-		if not FleetData.module_fits_slot(module_id, slot_id):
-			continue
-		var n := ShipData.get_module_count(module_id)
-		var btn := Button.new()
-		btn.text = "%s (%d)" % [str(FleetData.get_module_def(module_id).get("name", module_id)), n]
-		btn.disabled = n <= 0
-		btn.focus_mode = Control.FOCUS_NONE
-		btn.pressed.connect(func() -> void:
-			FleetData.equip_module(uid, slot_id, module_id)
-			_refit_slot = ""
-			_request_refresh()
-		)
-		box.add_child(btn)
-	var cancel := Button.new()
-	cancel.text = "Cancel"
-	cancel.focus_mode = Control.FOCUS_NONE
-	cancel.pressed.connect(func() -> void:
-		_refit_slot = ""
-		_refresh_details()
-	)
-	box.add_child(cancel)
-	return box
+		label.text = "Crew %d/%d · need %d free" % [have, need, need - have]
+		label.add_theme_color_override("font_color", Color(0.95, 0.55, 0.45, 1))
+	return label

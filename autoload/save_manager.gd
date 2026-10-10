@@ -46,6 +46,7 @@ func write_save(slot: int) -> void:
 		"crew": CrewData.to_save_dict(),
 		"fleet": FleetData.to_save_dict(),
 		"missions": MissionData.to_save_dict(),
+		"control_teams": ControlTeamData.to_save_dict(),
 	}
 	var file := FileAccess.open(slot_path(slot), FileAccess.WRITE)
 	if file == null:
@@ -81,6 +82,7 @@ func start_new_game() -> void:
 	CrewData.reset_for_new_game()
 	FleetData.reset_for_new_game()
 	MissionData.reset_for_new_game()
+	ControlTeamData.reset_for_new_game()
 	active_slot = first_empty_slot()
 	get_tree().call_deferred("change_scene_to_file", GAME_SCENE)
 
@@ -124,6 +126,11 @@ func load_slot(slot: int) -> void:
 		MissionData.apply_save_dict(mission_data)
 	else:
 		MissionData.reset_for_new_game()
+	var teams_data = data.get("control_teams", {})
+	if typeof(teams_data) == TYPE_DICTIONARY:
+		ControlTeamData.apply_save_dict(teams_data)
+	else:
+		ControlTeamData.reset_for_new_game()
 	get_tree().call_deferred("change_scene_to_file", GAME_SCENE)
 
 

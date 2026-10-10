@@ -11,14 +11,13 @@ enum RecallState { IDLE, TO_CARRIER }
 @export var arrive_distance: float = 10.0
 @export var dock_distance: float = 60.0
 
-var craft_id: String = "medium"
+var craft_id: String = "interceptor"
 var instance_uid: String = ""
 var callsign: String = ""
 var crew_count: int = 0
 ## 0.0–1.0 craft condition; scales performance with crew efficiency.
 var maintenance: float = 1.0
 var supplies: float = 1.0
-var loadout: Dictionary = {}
 var is_selected: bool = false
 var hp: float = 40.0
 var max_hp: float = 40.0
@@ -40,6 +39,11 @@ var _board_state: BoardState = BoardState.IDLE
 var _board_target: Node2D = null
 var _recall_state: RecallState = RecallState.IDLE
 var _recall_carrier: Node2D = null
+## Commander site berth assignment (asteroid / wreck).
+var site_uid: String = ""
+var site_berth: int = -1
+var site_kind: String = ""
+var _site_target: Node2D = null
 
 
 func setup(
@@ -49,32 +53,43 @@ func setup(
 	p_crew: int = 0,
 	p_maintenance: float = 1.0,
 	p_supplies: float = 1.0,
-	p_passengers: int = 0,
-	p_loadout: Dictionary = {}
+	p_passengers: int = 0
 ) -> void:
-	craft_id = id
+	craft_id = FleetData.normalize_craft_id(id)
 	instance_uid = uid
 	callsign = p_callsign
 	crew_count = maxi(p_crew, 0)
 	maintenance = FleetData.clamp_maintenance(p_maintenance)
 	supplies = FleetData.clamp_supplies(p_supplies)
-	loadout = p_loadout.duplicate(true) if not p_loadout.is_empty() else {}
 	var def := FleetData.get_strike_def(craft_id)
-	var caps := FleetData.get_loadout_caps_for_craft(craft_id, loadout)
 	if callsign == "":
 		callsign = str(def.get("name", craft_id))
 	max_hp = float(def.get("max_hp", 40.0))
 	hp = max_hp
-	miner_capacity = maxf(float(caps.get("cargo", 0.0)), 8.0)
+	miner_capacity = maxf(float(def.get("cargo", 0.0)), 8.0)
 	miner_cargo = 0.0
 	cargo_kind = "ore"
-	passenger_capacity = maxi(int(caps.get("passenger_capacity", 0)), 0)
+	passenger_capacity = FleetData.get_passenger_capacity(craft_id)
 	passengers = clampi(p_passengers, 0, maxi(passenger_capacity, 0))
 	_apply_visuals()
 
 
 func get_caps() -> Dictionary:
-	return FleetData.get_loadout_caps_for_craft(craft_id, loadout)
+	var def := FleetData.get_strike_def(craft_id)
+	return {
+		"can_mine": bool(def.get("can_mine", false)),
+		"can_salvage": bool(def.get("can_salvage", false)),
+		"can_haul_ore": bool(def.get("can_haul_ore", false)),
+		"can_haul_scrap": bool(def.get("can_haul_scrap", false)),
+		"can_scan": bool(def.get("can_scan", false)),
+		"can_explore": bool(def.get("can_explore", false)),
+		"boarding": bool(def.get("boarding", false)),
+		"combat": bool(def.get("combat", false)),
+		"passenger_capacity": FleetData.get_passenger_capacity(craft_id),
+		"cargo": float(def.get("cargo", 0.0)),
+		"damage": float(def.get("damage", 0.0)),
+		"range": float(def.get("range", 0.0)),
+	}
 
 
 func get_operation_efficiency() -> float:
@@ -126,6 +141,43 @@ func is_recalling() -> bool:
 	return _recall_state != RecallState.IDLE
 
 
+func has_site_duty() -> bool:
+	return site_uid != "" and site_berth >= 0
+
+
+func is_available_for_site_duty() -> bool:
+	if has_site_duty() or is_recalling():
+		return false
+	if not has_pilot():
+		return false
+	if _attack_target != null or _target != null:
+		return false
+	if _board_state != BoardState.IDLE or _miner_state != MinerState.IDLE:
+		return false
+	return true
+
+
+func clear_site_duty() -> void:
+	site_uid = ""
+	site_berth = -1
+	site_kind = ""
+	_site_target = null
+
+
+func assign_site_duty(target: Node2D, berth: int, p_site_uid: String, p_site_kind: String) -> void:
+	if not is_instance_valid(target) or berth < 0 or p_site_uid == "":
+		return
+	_site_target = target
+	site_berth = berth
+	site_uid = p_site_uid
+	site_kind = p_site_kind
+	if is_recalling():
+		return
+	if is_docked_with(target) or (get_dock_target() == target and is_docking()):
+		return
+	start_dock(target)
+
+
 func _ready() -> void:
 	_apply_visuals()
 
@@ -167,6 +219,7 @@ func _physics_process(delta: float) -> void:
 
 
 func issue_move(world_position: Vector2) -> void:
+	clear_site_duty()
 	_attack_target = null
 	_stop_mining_loop()
 	_stop_board_loop()
@@ -175,6 +228,7 @@ func issue_move(world_position: Vector2) -> void:
 
 
 func issue_stop() -> void:
+	clear_site_duty()
 	_attack_target = null
 	_stop_mining_loop()
 	_stop_board_loop()
@@ -184,6 +238,7 @@ func issue_stop() -> void:
 
 
 func issue_attack(target: Node2D) -> void:
+	clear_site_duty()
 	_stop_mining_loop()
 	_stop_board_loop()
 	_stop_recall_loop()
@@ -202,7 +257,12 @@ func start_recall(carrier: Node2D) -> void:
 	_recall_state = RecallState.TO_CARRIER
 
 
+func can_scan() -> bool:
+	return bool(get_caps().get("can_scan", false)) and has_pilot()
+
+
 func can_board() -> bool:
+	## Combat shuttle wreck explore / threat clear.
 	return bool(get_caps().get("can_explore", false)) and has_pilot()
 
 
@@ -576,25 +636,28 @@ func _steer_toward(to_target: Vector2, delta: float) -> void:
 
 
 func _apply_visuals() -> void:
-	var body := $Body as Polygon2D
-	match craft_id:
-		"large":
-			body.color = Color(0.85, 0.55, 0.4)
-			body.polygon = PackedVector2Array([
-				Vector2(16, 0), Vector2(-12, -10), Vector2(-6, 0), Vector2(-12, 10)
-			])
-		"medium":
-			body.color = Color(0.55, 0.8, 0.95)
-			body.polygon = PackedVector2Array([
-				Vector2(14, 0), Vector2(6, -11), Vector2(-12, -10), Vector2(-16, 0), Vector2(-12, 10), Vector2(6, 11)
-			])
-		"small":
-			body.color = Color(0.45, 0.95, 0.75)
-			body.polygon = PackedVector2Array([
-				Vector2(14, 0), Vector2(-10, -7), Vector2(-4, 0), Vector2(-10, 7)
-			])
+	var body := get_node_or_null("Body") as Polygon2D
+	if body == null:
+		return
+	var role := FleetData.get_craft_role(craft_id)
+	match role:
+		"combat", "combat_shuttle":
+			body.color = Color(0.95, 0.45, 0.42, 1)
+		"mining":
+			body.color = Color(0.95, 0.82, 0.35, 1)
+		"salvage":
+			body.color = Color(0.65, 0.85, 0.55, 1)
+		"cargo", "ore_hauler", "fuel", "ammo":
+			body.color = Color(0.55, 0.72, 0.95, 1)
+		"passenger", "transport":
+			body.color = Color(0.5, 0.85, 0.95, 1)
+		"expedition":
+			body.color = Color(0.75, 0.65, 0.95, 1)
+		"scout":
+			body.color = Color(0.55, 0.95, 0.85, 1)
 		_:
-			body.color = Color(0.55, 0.75, 0.85)
-			body.polygon = PackedVector2Array([
-				Vector2(13, 0), Vector2(2, -9), Vector2(-12, -6), Vector2(-8, 0), Vector2(-12, 6), Vector2(2, 9)
-			])
+			body.color = Color(0.45, 0.95, 0.75, 1)
+	body.visible = true
+	var old_visuals := get_node_or_null("Visuals")
+	if old_visuals != null:
+		old_visuals.queue_free()

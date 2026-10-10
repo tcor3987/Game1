@@ -82,7 +82,7 @@ theme_override_constants/separation = 8
 [node name="ModulesHeader" type="Label" parent="Margin/VBox/CompartmentsPage"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.85, 0.8, 0.95, 1)
-text = "Work slots — click to open or close"
+text = "Compartment max crew — use − / + to allocate staff"
 
 [node name="ModuleScroll" type="ScrollContainer" parent="Margin/VBox/CompartmentsPage"]
 layout_mode = 2
@@ -100,7 +100,7 @@ theme_override_constants/v_separation = 12
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.75, 0.9, 1)
 theme_override_font_sizes/font_size = 13
-text = "Mess cooks make fresh meals (cap 10); open eat seats for off-duty crew. Kitchen uses raw food to make food."
+text = "Raise Max to staff a room; lower Max when short on crew. Mess dining and bunks stay automatic."
 horizontal_alignment = 1
 
 [node name="CrewPage" type="VBoxContainer" parent="Margin/VBox"]
@@ -149,7 +149,7 @@ theme_override_constants/separation = 2
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.75, 0.9, 1)
 theme_override_font_sizes/font_size = 13
-text = "Rec 2h · Sleep 8h · Work 4h (green) / 8h (yellow). Red forces everyone to work. Needs below 25% skip work."
+text = "Free crew top up mess/bunks/lounge under 50%. Below 25% skips work. Red forces work."
 horizontal_alignment = 1
 
 [connection signal="toggled" from="Margin/VBox/TabBar/CompartmentsTabButton" to="." method="_on_compartments_tab_toggled"]

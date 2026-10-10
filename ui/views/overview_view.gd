@@ -69,16 +69,17 @@ func _refresh() -> void:
 	elif unexplored > 0:
 		survivor_line = "Survivors: %d known · %d wrecks unexplored" % [known, unexplored]
 	elif known > 0:
-		survivor_line = "Survivors confirmed: %d (board with Shuttle)" % known
+		survivor_line = "Survivors confirmed: %d (board with Transport)" % known
 	_crew_label.text = "\n".join([
 		"Crew & alert mode",
 		GameTime.get_clock_text(),
 		CrewData.get_mode_label(),
 		CrewData.get_needs_summary(),
-		"%d free · %d working · %d total" % [
+		"%d free · %d working · %d / %d crew" % [
 			CrewData.get_unassigned(),
 			CrewData.get_assigned_total(),
 			CrewData.total_crew,
+			CrewData.MAX_CREW,
 		],
 		"Raw food %d · Mess meals %d/%d · Food %d" % [
 			int(ShipData.get_produce()),
@@ -90,11 +91,15 @@ func _refresh() -> void:
 		"%s — Hangar → Launch → Map" % survivor_line,
 		_jump_drive_line(),
 	])
+	var craft_lines: PackedStringArray = ["Strike craft aboard"]
+	for craft_id in FleetData.CRAFT_ORDER:
+		var n := FleetData.get_stored(craft_id)
+		if n > 0:
+			craft_lines.append("%s: %d" % [FleetData.get_strike_def(craft_id).get("name", craft_id), n])
+	if craft_lines.size() == 1:
+		craft_lines.append("None stored")
 	_fleet_label.text = "\n".join([
-		"Chassis aboard",
-		"Small: %d" % FleetData.get_stored("small"),
-		"Medium: %d" % FleetData.get_stored("medium"),
-		"Large: %d" % FleetData.get_stored("large"),
+		"\n".join(craft_lines),
 		"Main bay %d/%d · Launch %d/%d · Land %d/%d" % [
 			FleetData.get_bay_used(FleetData.BAY_MAIN),
 			FleetData.get_bay_capacity(FleetData.BAY_MAIN),

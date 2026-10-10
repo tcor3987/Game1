@@ -3,7 +3,7 @@ extends Node
 signal crew_changed
 signal mode_changed(mode: String)
 
-## Max work slots per compartment module (eff reaches 1.0 at full staffing).
+## Max concurrent workers per compartment (eff reaches 1.0 at full staffing).
 const CREW_PER_COMPARTMENT := 5
 const EFFICIENCY_BASE := 0.0
 const EFFICIENCY_PER_CREW := 1.0 / float(CREW_PER_COMPARTMENT)
@@ -24,18 +24,31 @@ const ACTIVITY_FUN := "fun"
 
 const MODE_GREEN := "green"
 const MODE_YELLOW := "yellow"
+const MODE_ORANGE := "orange"
 const MODE_RED := "red"
+const MODE_ORDER := [MODE_GREEN, MODE_YELLOW, MODE_ORANGE, MODE_RED]
 
-## Below this, crew skip work and chase the low need instead (green/yellow).
+## Below this, crew skip work and chase the low need instead (green/yellow/orange).
 const NEED_WORK_THRESHOLD := 0.25
+## Free pool crew top up eat/sleep/fun seats when a need dips under this.
+const NEED_TOPUP_THRESHOLD := 0.5
 
-const HOURS_REC := 2.0
-const HOURS_SLEEP := 8.0
+## Shift lengths (game hours). Eat stays short.
 const HOURS_EAT := 1.0
+const HOURS_SLEEP := 4.0
 const HOURS_WORK_GREEN := 4.0
 const HOURS_WORK_YELLOW := 8.0
-const HOURS_WORK_RED := 8.0
-const HOURS_IDLE := 0.5
+const HOURS_WORK_ORANGE := 12.0
+const HOURS_WORK_RED := 12.0
+const HOURS_FUN_GREEN := 4.0
+const HOURS_FUN_YELLOW := 4.0
+const HOURS_FUN_ORANGE := 2.0
+
+## Soft roster cap — living space (mess / bunks) must cover daily turnover.
+const MAX_CREW := 2000
+## Fixed carrier has one Mess Hall and one Crew Quarters.
+const EAT_SEATS := 120
+const SLEEP_BUNKS := 400
 
 const FIRST_NAMES := [
 	"Ada", "Kai", "Mira", "Jon", "Rae", "Theo", "Nia", "Luc",
@@ -46,23 +59,29 @@ const LAST_NAMES := [
 	"Mercer", "Costa", "Patel", "Frost", "Kline", "Sato", "Ward", "Bloom",
 ]
 
-## Starting open work posts (slot 0 open on each).
-const START_OPEN_SLOTS := ["bridge", "engine", "reactor", "hangar", "docking", "refinery", "jump_drive", "recreation", "mess_hall", "kitchen", "greenhouse"]
-
-## Leisure compartments — open slots seat crew for rest activities, not work.
+## Leisure compartments — always fully staffed for rest; not work posts.
 const LEISURE_COMPARTMENTS := ["recreation"]
 const MESS_HALL_ID := "mess_hall"
 const CREW_QUARTERS_ID := "crew_quarters"
-const EAT_SLOT_COUNT := CREW_PER_COMPARTMENT
-const SLEEP_SLOT_COUNT := CREW_PER_COMPARTMENT
+
+## New-game seed only. Work maxes otherwise start at 0 — player allocates scarce crew.
+const STARTER_STAFF_TARGETS := {
+	"bridge": 1,
+	"engine": 2,
+	"reactor": 2,
+	"sensor": 1,
+	"kitchen": 1,
+	"mess_hall": 1,
+	"hangar": 1,
+}
 
 var _roster: Array[Dictionary] = []
 var _next_id: int = 1
-## compartment_id -> Array[bool] open flags (length CREW_PER_COMPARTMENT).
-var _work_slots: Dictionary = {}
-## Mess hall dine posts (separate from cook work slots).
+## compartment_id -> player max workers (0..cap). Crew auto-fill up to this, like team craft maxes.
+var _staff_target: Dictionary = {}
+## Mess hall dine seats (always open; capacity from EAT_SEATS).
 var _eat_slots: Array = []
-## Crew quarters bunks (separate from quarters work posts).
+## Crew quarters bunks (always open; capacity from SLEEP_BUNKS).
 var _sleep_slots: Array = []
 var alert_mode: String = MODE_GREEN
 var _ui_need_bucket: String = ""
@@ -88,20 +107,26 @@ func reset_for_new_game() -> void:
 	_roster.clear()
 	_next_id = 1
 	alert_mode = MODE_GREEN
-	_reset_work_slots()
+	_reset_staff_targets()
+	_apply_starter_staff_targets()
 	_reset_eat_slots()
 	_reset_sleep_slots()
-	for compartment_id in START_OPEN_SLOTS:
-		set_slot_open(compartment_id, 0, true, false)
 	_force_rest_slots_open(false)
-	for _i in 30:
+	for _i in 50:
 		_create_person(DUTY_POOL)
 	bootstrap_activities()
 	mode_changed.emit(alert_mode)
 	_changed()
 
 
+func get_crew_room() -> int:
+	return maxi(MAX_CREW - total_crew, 0)
+
+
 func add_crew(amount: int) -> int:
+	if amount <= 0:
+		return 0
+	amount = mini(amount, get_crew_room())
 	if amount <= 0:
 		return 0
 	for _i in amount:
@@ -112,6 +137,8 @@ func add_crew(amount: int) -> int:
 
 
 func add_crew_as_passenger(craft_uid: String) -> int:
+	if get_crew_room() <= 0:
+		return 0
 	var person := _create_person(DUTY_PASSENGER)
 	person["craft_uid"] = craft_uid
 	_changed()
@@ -312,6 +339,18 @@ func _passenger_can_cycle_to_site(person: Dictionary) -> bool:
 		float(person.get("sleep", 0.0)) >= NEED_WORK_THRESHOLD
 		and float(person.get("fun", 0.0)) >= NEED_WORK_THRESHOLD
 	)
+
+
+func allows_fun() -> bool:
+	return alert_mode != MODE_RED
+
+
+func allows_sleep() -> bool:
+	return alert_mode != MODE_RED
+
+
+func is_force_work_mode() -> bool:
+	return alert_mode == MODE_RED
 
 
 ## Move one shuttle passenger onto a site work slot.
@@ -607,7 +646,7 @@ func toggle_sleep_slot_open(_slot: int) -> void:
 
 
 func move_crew_to_sleep_slot(crew_id: String, slot: int) -> bool:
-	if crew_id == "" or not is_sleep_slot_open(slot):
+	if crew_id == "" or not allows_sleep() or not is_sleep_slot_open(slot):
 		return false
 	var person := _person_mut(crew_id)
 	if person.is_empty() or not _is_ship_schedule_crew(person):
@@ -620,76 +659,78 @@ func move_crew_to_sleep_slot(crew_id: String, slot: int) -> bool:
 			_assign_next_activity(other)
 	person["duty"] = DUTY_COMPARTMENT
 	person["activity"] = ACTIVITY_SLEEP
-	person["activity_hours"] = HOURS_SLEEP
+	person["activity_hours"] = _sleep_duration_hours()
 	person["compartment_id"] = CREW_QUARTERS_ID
 	person["slot"] = slot
 	person["craft_uid"] = ""
 	return true
 
 
+func get_eat_seat_capacity() -> int:
+	return EAT_SEATS if ShipData.has_function("mess_hall") else 0
+
+
+func get_sleep_bunk_capacity() -> int:
+	return SLEEP_BUNKS if ShipData.has_function("crew_quarters") else 0
+
+
 func get_max_assignable(compartment_id: String) -> int:
 	return ShipData.count_installed(compartment_id) * CREW_PER_COMPARTMENT
 
 
-func get_open_slot_count(compartment_id: String) -> int:
-	_ensure_compartment_slots(compartment_id)
-	## Recreation lounge posts are always fully open.
+func get_staff_target(compartment_id: String) -> int:
+	_ensure_staff_target(compartment_id)
 	if is_leisure_compartment(compartment_id):
-		return _work_slots[compartment_id].size()
-	var total := 0
-	for open in _work_slots[compartment_id]:
-		if bool(open):
-			total += 1
-	return total
+		return get_max_assignable(compartment_id)
+	return int(_staff_target.get(compartment_id, 0))
+
+
+func set_staff_target(compartment_id: String, amount: int, fill_now: bool = true) -> void:
+	if ShipData.count_installed(compartment_id) <= 0:
+		return
+	_ensure_staff_target(compartment_id)
+	var cap := get_max_assignable(compartment_id)
+	if is_leisure_compartment(compartment_id):
+		amount = cap
+	amount = clampi(amount, 0, cap)
+	var prev := int(_staff_target.get(compartment_id, 0))
+	if is_leisure_compartment(compartment_id):
+		prev = cap
+	_staff_target[compartment_id] = amount
+	## Drop anyone seated above the new max.
+	if amount < prev:
+		for person in _roster:
+			if str(person.get("duty", "")) != DUTY_COMPARTMENT:
+				continue
+			if str(person.get("compartment_id", "")) != compartment_id:
+				continue
+			if int(person.get("slot", -1)) >= amount:
+				_set_pool(person)
+				_assign_next_activity(person)
+	elif fill_now and amount > prev:
+		_fill_staff_vacancies(compartment_id)
+	_changed()
+
+
+func adjust_staff_target(compartment_id: String, delta: int) -> void:
+	set_staff_target(compartment_id, get_staff_target(compartment_id) + delta, true)
+
+
+## Legacy name — open posts == staff target.
+func get_open_slot_count(compartment_id: String) -> int:
+	return get_staff_target(compartment_id)
 
 
 func is_slot_open(compartment_id: String, slot: int) -> bool:
-	_ensure_compartment_slots(compartment_id)
-	var slots: Array = _work_slots[compartment_id]
-	if slot < 0 or slot >= slots.size():
-		return false
-	if is_leisure_compartment(compartment_id):
-		return true
-	return bool(slots[slot])
+	return slot >= 0 and slot < get_staff_target(compartment_id)
 
 
 func set_slot_open(compartment_id: String, slot: int, open: bool, fill_now: bool = true) -> void:
-	if ShipData.count_installed(compartment_id) <= 0:
-		return
-	_ensure_compartment_slots(compartment_id)
-	var slots: Array = _work_slots[compartment_id]
-	if slot < 0 or slot >= slots.size():
-		return
-	## Recreation (fun) posts cannot be shut off.
-	if is_leisure_compartment(compartment_id) and not open:
-		return
-	if is_leisure_compartment(compartment_id):
-		open = true
-	if bool(slots[slot]) == open:
-		if open and fill_now and is_leisure_compartment(compartment_id) and get_slot_crew_id(compartment_id, slot) == "":
-			var needy := _first_fun_needy_id()
-			if needy != "":
-				move_crew_to_slot(needy, compartment_id, slot)
-				_changed()
-		return
-	slots[slot] = open
-	if not open:
-		var occupant := get_slot_crew_id(compartment_id, slot)
-		if occupant != "":
-			var person := _person_mut(occupant)
-			if not person.is_empty():
-				_set_pool(person)
-				_assign_next_activity(person)
-	elif fill_now and get_slot_crew_id(compartment_id, slot) == "":
-		if is_leisure_compartment(compartment_id):
-			var needy := _first_fun_needy_id()
-			if needy != "":
-				move_crew_to_slot(needy, compartment_id, slot)
-		else:
-			var worker := _first_eligible_worker_id()
-			if worker != "":
-				move_crew_to_slot(worker, compartment_id, slot)
-	_changed()
+	## Compat shim: opening slot N means target at least N+1; closing means target <= N.
+	if open:
+		set_staff_target(compartment_id, maxi(get_staff_target(compartment_id), slot + 1), fill_now)
+	else:
+		set_staff_target(compartment_id, mini(get_staff_target(compartment_id), slot), fill_now)
 
 
 func get_alert_mode() -> String:
@@ -700,28 +741,33 @@ func get_mode_label(mode: String = "") -> String:
 	var m := mode if mode != "" else alert_mode
 	match m:
 		MODE_YELLOW:
-			return "Yellow — long shifts"
+			return "Yellow — work 8h · sleep/fun 4h"
+		MODE_ORANGE:
+			return "Orange — work 12h · sleep 4h · fun 2h"
 		MODE_RED:
-			return "Red — all hands work"
+			return "Red — forced work, no rest or fun"
 		_:
-			return "Green — standard shifts"
+			return "Green — work/sleep/fun 4h"
 
 
 func set_alert_mode(mode: String) -> void:
-	if mode != MODE_GREEN and mode != MODE_YELLOW and mode != MODE_RED:
+	if mode not in MODE_ORDER:
 		return
 	if alert_mode == mode:
 		return
 	alert_mode = mode
 	if alert_mode == MODE_RED:
 		force_all_work()
+	else:
+		## Leaving red (or changing shifts): re-seat onto the new lengths.
+		bootstrap_activities()
 	mode_changed.emit(alert_mode)
 	_changed()
 
 
 ## Cancel non-work activities and put every mothership crew on work.
 func force_all_work() -> void:
-	_ensure_all_work_slots()
+	_ensure_all_staff_targets()
 	for person in _roster:
 		if not _is_ship_schedule_crew(person) and str(person.get("duty", "")) != DUTY_COMPARTMENT:
 			continue
@@ -733,39 +779,36 @@ func force_all_work() -> void:
 
 
 func toggle_slot_open(compartment_id: String, slot: int) -> void:
-	## Recreation (fun) posts cannot be toggled shut.
+	## Compat: click toggles whether that seat index is inside the staff target.
 	if is_leisure_compartment(compartment_id):
 		return
-	set_slot_open(compartment_id, slot, not is_slot_open(compartment_id, slot), true)
+	if is_slot_open(compartment_id, slot):
+		set_staff_target(compartment_id, slot, true)
+	else:
+		set_staff_target(compartment_id, slot + 1, true)
 
 
-## Keep fun / eat / sleep posts permanently open.
+## Keep lounge / eat / sleep capacity available.
 func _force_rest_slots_open(fill_now: bool = false) -> void:
-	_ensure_all_work_slots()
+	_ensure_all_staff_targets()
 	_ensure_eat_slots()
 	_ensure_sleep_slots()
 	for compartment_id in LEISURE_COMPARTMENTS:
 		if ShipData.count_installed(compartment_id) <= 0:
 			continue
-		_ensure_compartment_slots(compartment_id)
-		var slots: Array = _work_slots[compartment_id]
-		for i in slots.size():
-			slots[i] = true
-			if fill_now and get_slot_crew_id(compartment_id, i) == "":
-				var needy := _first_fun_needy_id()
-				if needy != "":
-					move_crew_to_slot(needy, compartment_id, i)
-	for i in _eat_slots.size():
-		_eat_slots[i] = true
-		if fill_now and get_eat_slot_crew_id(i) == "":
-			var hungry := _first_hunger_needy_id()
-			if hungry != "":
+		set_staff_target(compartment_id, get_max_assignable(compartment_id), fill_now)
+	if fill_now:
+		for i in _eat_slots.size():
+			if get_eat_slot_crew_id(i) == "":
+				var hungry := _first_hunger_needy_id()
+				if hungry == "":
+					break
 				move_crew_to_eat_slot(hungry, i)
-	for i in _sleep_slots.size():
-		_sleep_slots[i] = true
-		if fill_now and get_sleep_slot_crew_id(i) == "":
-			var tired := _first_sleep_needy_id()
-			if tired != "":
+		for i in _sleep_slots.size():
+			if get_sleep_slot_crew_id(i) == "":
+				var tired := _first_sleep_needy_id()
+				if tired == "":
+					break
 				move_crew_to_sleep_slot(tired, i)
 
 
@@ -832,6 +875,24 @@ func unassign_passenger_from_craft(craft_uid: String) -> bool:
 			_assign_next_activity(person)
 			_changed()
 			return true
+	return false
+
+
+func convert_passenger_to_pilot(from_craft_uid: String, to_craft_uid: String) -> bool:
+	## Move one spare passenger onto another craft as flight crew (control-team swaps).
+	if from_craft_uid == "" or to_craft_uid == "":
+		return false
+	for person in _roster:
+		if str(person.get("duty", "")) != DUTY_PASSENGER:
+			continue
+		if str(person.get("craft_uid", "")) != from_craft_uid:
+			continue
+		person["duty"] = DUTY_PILOT
+		person["craft_uid"] = to_craft_uid
+		person["compartment_id"] = ""
+		person["slot"] = -1
+		_changed()
+		return true
 	return false
 
 
@@ -1011,29 +1072,21 @@ func can_unassign(compartment_id: String) -> bool:
 
 
 func assign_one(compartment_id: String) -> bool:
-	## Legacy: open the next closed slot instead of manual assign.
+	## Raise staff target by one (control-team style).
 	if is_leisure_compartment(compartment_id):
 		return false
-	_ensure_compartment_slots(compartment_id)
-	var slots: Array = _work_slots[compartment_id]
-	for i in slots.size():
-		if not bool(slots[i]):
-			set_slot_open(compartment_id, i, true, true)
-			return true
-	return false
+	var before := get_staff_target(compartment_id)
+	adjust_staff_target(compartment_id, 1)
+	return get_staff_target(compartment_id) > before
 
 
 func unassign_one(compartment_id: String) -> bool:
-	## Legacy: close the last open slot.
+	## Lower staff target by one.
 	if is_leisure_compartment(compartment_id):
 		return false
-	_ensure_compartment_slots(compartment_id)
-	var slots: Array = _work_slots[compartment_id]
-	for i in range(slots.size() - 1, -1, -1):
-		if bool(slots[i]):
-			set_slot_open(compartment_id, i, false, true)
-			return true
-	return false
+	var before := get_staff_target(compartment_id)
+	adjust_staff_target(compartment_id, -1)
+	return get_staff_target(compartment_id) < before
 
 
 func move_crew_to_slot(crew_id: String, compartment_id: String, slot: int) -> bool:
@@ -1044,7 +1097,7 @@ func move_crew_to_slot(crew_id: String, compartment_id: String, slot: int) -> bo
 	if person.is_empty() or not _is_ship_schedule_crew(person):
 		return false
 	var leisure := is_leisure_compartment(compartment_id)
-	if not leisure and alert_mode != MODE_RED and not _can_work(person):
+	if not leisure and not is_force_work_mode() and not _can_work(person):
 		return false
 	var occupant := get_slot_crew_id(compartment_id, slot)
 	if occupant != "" and occupant != crew_id:
@@ -1052,9 +1105,11 @@ func move_crew_to_slot(crew_id: String, compartment_id: String, slot: int) -> bo
 		if not other.is_empty():
 			_set_pool(other)
 			_assign_next_activity(other)
+	if leisure and not allows_fun():
+		return false
 	person["duty"] = DUTY_COMPARTMENT
 	person["activity"] = ACTIVITY_FUN if leisure else ACTIVITY_WORK
-	person["activity_hours"] = HOURS_REC if leisure else _work_duration_hours()
+	person["activity_hours"] = _fun_duration_hours() if leisure else _work_duration_hours()
 	person["compartment_id"] = compartment_id
 	person["slot"] = slot
 	person["craft_uid"] = ""
@@ -1102,17 +1157,18 @@ func tick_activities(delta: float) -> void:
 		return
 	var hours := GameTime.delta_to_hours(delta)
 	var finished: Array[Dictionary] = []
-	for person in _roster:
+	for i in _roster.size():
+		var person: Dictionary = _roster[i]
 		_tick_person_needs(person, hours)
 		var duty := str(person.get("duty", ""))
 		if duty == DUTY_SITE:
 			## Site workers keep mining/salvaging; refresh work timer in place.
-			var left := float(person.get("activity_hours", 0.0)) - hours
-			if left <= 0.0:
+			var site_left := float(person.get("activity_hours", 0.0)) - hours
+			if site_left <= 0.0:
 				person["activity"] = ACTIVITY_WORK
 				person["activity_hours"] = _work_duration_hours()
 			else:
-				person["activity_hours"] = left
+				person["activity_hours"] = site_left
 			continue
 		if not _is_ship_schedule_crew(person) and duty != DUTY_COMPARTMENT:
 			continue
@@ -1122,6 +1178,8 @@ func tick_activities(delta: float) -> void:
 			finished.append(person)
 	for person in finished:
 		_on_activity_finished(person)
+	## Idle free crew with soft needs claim open mess/bunk/lounge seats.
+	_pull_idle_free_to_needs()
 	_emit_needs_ui_if_needed()
 
 
@@ -1188,7 +1246,7 @@ func to_save_dict() -> Dictionary:
 	return {
 		"roster": get_roster(),
 		"next_id": _next_id,
-		"work_slots": _work_slots.duplicate(true),
+		"staff_targets": _staff_target.duplicate(true),
 		"eat_slots": _eat_slots.duplicate(),
 		"sleep_slots": _sleep_slots.duplicate(),
 		"alert_mode": alert_mode,
@@ -1203,7 +1261,7 @@ func apply_save_dict(data: Dictionary) -> void:
 		_roster.clear()
 		_next_id = maxi(int(data.get("next_id", 1)), 1)
 		alert_mode = str(data.get("alert_mode", MODE_GREEN))
-		if alert_mode != MODE_GREEN and alert_mode != MODE_YELLOW and alert_mode != MODE_RED:
+		if alert_mode not in MODE_ORDER:
 			alert_mode = MODE_GREEN
 		for entry in data.get("roster", []):
 			if typeof(entry) != TYPE_DICTIONARY:
@@ -1212,7 +1270,7 @@ func apply_save_dict(data: Dictionary) -> void:
 			_roster.append(person)
 			var numeric := int(str(person["id"]).replace("crew_", ""))
 			_next_id = maxi(_next_id, numeric + 1)
-		_load_work_slots(data.get("work_slots", {}))
+		_load_staff_targets(data.get("staff_targets", data.get("work_slots", {})))
 		_load_eat_slots(data.get("eat_slots", []))
 		_load_sleep_slots(data.get("sleep_slots", []))
 		_force_rest_slots_open(false)
@@ -1231,7 +1289,7 @@ func apply_save_dict(data: Dictionary) -> void:
 	_roster.clear()
 	_next_id = 1
 	alert_mode = MODE_GREEN
-	_reset_work_slots()
+	_reset_staff_targets()
 	for _i in legacy_total:
 		_create_person(DUTY_POOL)
 	var saved = data.get("assignments", {})
@@ -1240,12 +1298,7 @@ func apply_save_dict(data: Dictionary) -> void:
 			var compartment_id := _migrate_compartment_id(str(key))
 			if ShipData.get_compartment_def(compartment_id).is_empty():
 				continue
-			var amount := maxi(int(saved[key]), 0)
-			for slot_i in amount:
-				set_slot_open(compartment_id, slot_i, true, false)
-	else:
-		for compartment_id in START_OPEN_SLOTS:
-			set_slot_open(compartment_id, 0, true, false)
+			set_staff_target(compartment_id, maxi(int(saved[key]), 0), false)
 	bootstrap_activities()
 	mode_changed.emit(alert_mode)
 	crew_changed.emit()
@@ -1317,7 +1370,7 @@ func _first_eligible_worker_id() -> String:
 			continue
 		## Prefer idle / free pool people; red can pull anyone off needs.
 		var activity := str(person.get("activity", ACTIVITY_IDLE))
-		if alert_mode == MODE_RED:
+		if is_force_work_mode():
 			if activity != ACTIVITY_WORK:
 				return str(person.get("id", ""))
 			continue
@@ -1327,6 +1380,26 @@ func _first_eligible_worker_id() -> String:
 			continue
 		if _can_work(person):
 			return str(person.get("id", ""))
+	return ""
+
+
+## When the commander raises a compartment max, pull able pool crew immediately.
+func _first_fillable_worker_id() -> String:
+	var idle := _first_eligible_worker_id()
+	if idle != "":
+		return idle
+	if is_force_work_mode():
+		return ""
+	## Interrupt off-duty pool people who are fit enough to work.
+	for person in _roster:
+		if str(person.get("duty", "")) != DUTY_POOL:
+			continue
+		if not _can_work(person):
+			continue
+		var activity := str(person.get("activity", ACTIVITY_IDLE))
+		if activity == ACTIVITY_WORK:
+			continue
+		return str(person.get("id", ""))
 	return ""
 
 
@@ -1404,10 +1477,28 @@ func _work_duration_hours() -> float:
 	match alert_mode:
 		MODE_YELLOW:
 			return HOURS_WORK_YELLOW
+		MODE_ORANGE:
+			return HOURS_WORK_ORANGE
 		MODE_RED:
 			return HOURS_WORK_RED
 		_:
 			return HOURS_WORK_GREEN
+
+
+func _sleep_duration_hours() -> float:
+	return HOURS_SLEEP
+
+
+func _fun_duration_hours() -> float:
+	match alert_mode:
+		MODE_ORANGE:
+			return HOURS_FUN_ORANGE
+		MODE_YELLOW:
+			return HOURS_FUN_YELLOW
+		MODE_RED:
+			return 0.0
+		_:
+			return HOURS_FUN_GREEN
 
 
 func _duration_for_activity(activity: String) -> float:
@@ -1415,19 +1506,21 @@ func _duration_for_activity(activity: String) -> float:
 		ACTIVITY_WORK:
 			return _work_duration_hours()
 		ACTIVITY_SLEEP:
-			return HOURS_SLEEP
+			return _sleep_duration_hours()
 		ACTIVITY_FUN:
-			return HOURS_REC
+			return _fun_duration_hours()
 		ACTIVITY_EAT:
 			return HOURS_EAT
 		_:
-			return HOURS_IDLE
+			return HOURS_EAT
 
 
 func _on_activity_finished(person: Dictionary) -> void:
 	if person.is_empty():
 		return
-	## Leave the work slot before picking the next job.
+	var finished_activity := str(person.get("activity", ACTIVITY_IDLE))
+	## Finish the need this task was for, then free the seat.
+	_complete_activity_need(person, finished_activity)
 	if str(person.get("duty", "")) == DUTY_COMPARTMENT:
 		_set_pool(person)
 	else:
@@ -1436,39 +1529,114 @@ func _on_activity_finished(person: Dictionary) -> void:
 	_assign_next_activity(person)
 
 
+## Snap the need this activity restores so a finished sleep/eat/fun shift always pays off.
+func _complete_activity_need(person: Dictionary, activity: String) -> void:
+	match activity:
+		ACTIVITY_SLEEP:
+			person["sleep"] = 1.0
+		ACTIVITY_EAT:
+			person["hunger"] = 1.0
+		ACTIVITY_FUN:
+			person["fun"] = 1.0
+		_:
+			pass
+
+
 func _assign_next_activity(person: Dictionary) -> void:
 	if person.is_empty():
 		return
 	if not _is_ship_schedule_crew(person) and str(person.get("duty", "")) != DUTY_COMPARTMENT:
 		return
-	if alert_mode == MODE_RED:
+	## Red: forced labor only — no sleep, fun, or elective rest.
+	if is_force_work_mode():
 		_assign_work(person, true)
 		return
 	if not _can_work(person):
-		var need := _pick_need_activity(person)
-		if need == ACTIVITY_FUN:
-			if _assign_recreation(person):
-				return
-			## No open lounge post — weak pool recreation until a slot frees.
-			_start_activity(person, ACTIVITY_FUN)
-			return
-		if need == ACTIVITY_EAT:
-			if _assign_mess_eat(person):
-				return
-			## No open eat post — eat in the pool (meals first, then rations).
-			_start_activity(person, ACTIVITY_EAT)
-			return
-		if need == ACTIVITY_SLEEP:
-			if _assign_quarters_sleep(person):
-				return
-			## No open bunk — sleep in the pool (slower recovery).
-			_start_activity(person, ACTIVITY_SLEEP)
-			return
-		_start_activity(person, need)
+		_assign_life_activity(person, true)
+		return
+	## Free crew: use open life seats before work when a need is under 50%.
+	if str(person.get("duty", "")) == DUTY_POOL and _try_assign_need_topup(person):
 		return
 	if _assign_work(person, false):
 		return
-	_start_activity(person, ACTIVITY_IDLE)
+	## No free work seat — keep them busy with life support instead of idling.
+	_assign_life_activity(person, false)
+
+
+## Seat free/idle crew into mess, bunks, or lounge when a need is soft-low.
+func _try_assign_need_topup(person: Dictionary) -> bool:
+	if person.is_empty() or is_force_work_mode():
+		return false
+	var hunger := float(person.get("hunger", 1.0))
+	var sleep_v := float(person.get("sleep", 1.0))
+	var fun_v := float(person.get("fun", 1.0))
+	## Worst need under the top-up line first.
+	var picks: Array[Dictionary] = []
+	if hunger < NEED_TOPUP_THRESHOLD:
+		picks.append({"activity": ACTIVITY_EAT, "value": hunger})
+	if allows_sleep() and sleep_v < NEED_TOPUP_THRESHOLD:
+		picks.append({"activity": ACTIVITY_SLEEP, "value": sleep_v})
+	if allows_fun() and fun_v < NEED_TOPUP_THRESHOLD:
+		picks.append({"activity": ACTIVITY_FUN, "value": fun_v})
+	if picks.is_empty():
+		return false
+	picks.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return float(a.get("value", 1.0)) < float(b.get("value", 1.0))
+	)
+	for pick in picks:
+		match str(pick.get("activity", "")):
+			ACTIVITY_EAT:
+				if _assign_mess_eat(person):
+					return true
+			ACTIVITY_SLEEP:
+				if _assign_quarters_sleep(person):
+					return true
+			ACTIVITY_FUN:
+				if _assign_recreation(person):
+					return true
+	return false
+
+
+func _pull_idle_free_to_needs() -> void:
+	if is_force_work_mode():
+		return
+	for person in _roster:
+		if str(person.get("duty", "")) != DUTY_POOL:
+			continue
+		## Only pull true idlers — don't yank people off work/eat/sleep/fun mid-shift.
+		if str(person.get("activity", ACTIVITY_IDLE)) != ACTIVITY_IDLE:
+			continue
+		_try_assign_need_topup(person)
+
+
+func _assign_life_activity(person: Dictionary, urgent: bool) -> void:
+	if is_force_work_mode():
+		_assign_work(person, true)
+		return
+	var need := _pick_need_activity(person) if urgent else _pick_lowest_need(person)
+	## Skip blocked activities and fall through to the next need.
+	if need == ACTIVITY_FUN and not allows_fun():
+		need = ACTIVITY_EAT if float(person.get("hunger", 1.0)) <= float(person.get("sleep", 1.0)) else ACTIVITY_SLEEP
+	if need == ACTIVITY_SLEEP and not allows_sleep():
+		need = ACTIVITY_EAT
+	match need:
+		ACTIVITY_FUN:
+			if allows_fun():
+				if _assign_recreation(person):
+					return
+				_start_activity(person, ACTIVITY_FUN)
+				return
+		ACTIVITY_SLEEP:
+			if allows_sleep():
+				if _assign_quarters_sleep(person):
+					return
+				_start_activity(person, ACTIVITY_SLEEP)
+				return
+		_:
+			pass
+	if _assign_mess_eat(person):
+		return
+	_start_activity(person, ACTIVITY_EAT)
 
 
 func _assign_work(person: Dictionary, force: bool) -> bool:
@@ -1476,15 +1644,11 @@ func _assign_work(person: Dictionary, force: bool) -> bool:
 		return false
 	if not force and not _can_work(person):
 		return false
-	## Seat into first vacant open work slot (skip leisure decks).
+	## Seat into first vacant staff seat (skip leisure decks).
 	for compartment_id in ShipData.CARRIER_COMPARTMENTS:
 		if is_leisure_compartment(compartment_id):
 			continue
-		_ensure_compartment_slots(compartment_id)
-		var slots: Array = _work_slots[compartment_id]
-		for slot_i in slots.size():
-			if not bool(slots[slot_i]):
-				continue
+		for slot_i in get_staff_target(compartment_id):
 			if get_slot_crew_id(compartment_id, slot_i) != "":
 				continue
 			return move_crew_to_slot(str(person.get("id", "")), compartment_id, slot_i)
@@ -1501,13 +1665,9 @@ func _assign_work(person: Dictionary, force: bool) -> bool:
 
 
 func _assign_recreation(person: Dictionary) -> bool:
-	if person.is_empty() or not ShipData.has_function("recreation"):
+	if person.is_empty() or not allows_fun() or not ShipData.has_function("recreation"):
 		return false
-	_ensure_compartment_slots("recreation")
-	var slots: Array = _work_slots["recreation"]
-	for slot_i in slots.size():
-		if not bool(slots[slot_i]):
-			continue
+	for slot_i in get_staff_target("recreation"):
 		if get_slot_crew_id("recreation", slot_i) != "":
 			continue
 		return move_crew_to_slot(str(person.get("id", "")), "recreation", slot_i)
@@ -1528,7 +1688,7 @@ func _assign_mess_eat(person: Dictionary) -> bool:
 
 
 func _assign_quarters_sleep(person: Dictionary) -> bool:
-	if person.is_empty() or not ShipData.has_function("crew_quarters"):
+	if person.is_empty() or not allows_sleep() or not ShipData.has_function("crew_quarters"):
 		return false
 	_ensure_sleep_slots()
 	for slot_i in _sleep_slots.size():
@@ -1541,6 +1701,10 @@ func _assign_quarters_sleep(person: Dictionary) -> bool:
 
 
 func _start_activity(person: Dictionary, activity: String) -> void:
+	if activity == ACTIVITY_FUN and not allows_fun():
+		activity = ACTIVITY_EAT
+	if activity == ACTIVITY_SLEEP and not allows_sleep():
+		activity = ACTIVITY_EAT
 	if activity == ACTIVITY_FUN and _assign_recreation(person):
 		return
 	if activity == ACTIVITY_EAT and _assign_mess_eat(person):
@@ -1569,6 +1733,7 @@ func _can_work(person: Dictionary) -> bool:
 
 
 func _pick_need_activity(person: Dictionary) -> String:
+	## Urgent: only needs that block work.
 	var hunger := float(person.get("hunger", 0.0))
 	var sleep_v := float(person.get("sleep", 0.0))
 	var fun_v := float(person.get("fun", 0.0))
@@ -1585,12 +1750,39 @@ func _pick_need_activity(person: Dictionary) -> String:
 	return worst if worst != ACTIVITY_IDLE else ACTIVITY_EAT
 
 
+func _pick_lowest_need(person: Dictionary) -> String:
+	## Always pick something real — used when work seats are full so nobody idles.
+	var hunger := float(person.get("hunger", 0.0))
+	var sleep_v := float(person.get("sleep", 0.0))
+	var fun_v := float(person.get("fun", 0.0))
+	if not allows_fun():
+		fun_v = 1.0
+	if not allows_sleep():
+		sleep_v = 1.0
+	if hunger <= sleep_v and hunger <= fun_v:
+		return ACTIVITY_EAT
+	if sleep_v <= fun_v:
+		return ACTIVITY_SLEEP
+	return ACTIVITY_FUN
+
+
 func _tick_person_needs(person: Dictionary, hours: float) -> void:
 	if hours <= 0.0:
 		return
 	var duty := str(person.get("duty", ""))
+	var activity := str(person.get("activity", ACTIVITY_IDLE))
 	## Craft-duty crew still tire slowly; packed rations keep them fed underway.
+	## If marked Sleeping while off the ship schedule, still recover rest.
 	if duty == DUTY_HANGAR or duty == DUTY_PILOT or duty == DUTY_PASSENGER:
+		if activity == ACTIVITY_SLEEP:
+			person["sleep"] = clampf(
+				float(person.get("sleep", 0.0)) + (1.0 / maxf(_sleep_duration_hours(), 0.1)) * hours,
+				0.0,
+				1.0
+			)
+			person["hunger"] = clampf(float(person.get("hunger", 1.0)) - 0.03 * hours, 0.0, 1.0)
+			person["fun"] = clampf(float(person.get("fun", 1.0)) - 0.02 * hours, 0.0, 1.0)
+			return
 		person["hunger"] = clampf(float(person.get("hunger", 1.0)) - 0.04 * hours, 0.0, 1.0)
 		person["sleep"] = clampf(float(person.get("sleep", 1.0)) - 0.05 * hours, 0.0, 1.0)
 		person["fun"] = clampf(float(person.get("fun", 1.0)) - 0.03 * hours, 0.0, 1.0)
@@ -1605,15 +1797,16 @@ func _tick_person_needs(person: Dictionary, hours: float) -> void:
 		person["sleep"] = clampf(float(person.get("sleep", 1.0)) - 0.1 * hours, 0.0, 1.0)
 		person["fun"] = clampf(float(person.get("fun", 1.0)) - 0.07 * hours, 0.0, 1.0)
 		return
-	match str(person.get("activity", ACTIVITY_IDLE)):
+	match activity:
 		ACTIVITY_WORK:
 			person["hunger"] = clampf(float(person.get("hunger", 1.0)) - 0.08 * hours, 0.0, 1.0)
 			person["sleep"] = clampf(float(person.get("sleep", 1.0)) - 0.1 * hours, 0.0, 1.0)
 			person["fun"] = clampf(float(person.get("fun", 1.0)) - 0.07 * hours, 0.0, 1.0)
 		ACTIVITY_EAT:
-			var restored := 0.45 * hours
+			## Fill hunger over the eat shift when meals/rations are available.
+			var eat_rate := 1.0 / maxf(HOURS_EAT, 0.1)
+			var restored := eat_rate * hours
 			var fed := false
-			## Prefer fresh mess-hall meals; fall back to packed rations.
 			if ShipData.get_meals() > 0.0:
 				var eaten := ShipData.consume_meals(restored * 0.35)
 				fed = eaten > 0.0
@@ -1623,28 +1816,29 @@ func _tick_person_needs(person: Dictionary, hours: float) -> void:
 			if fed:
 				person["hunger"] = clampf(float(person.get("hunger", 0.0)) + restored, 0.0, 1.0)
 			else:
-				## Nothing to eat — hunger barely recovers.
 				person["hunger"] = clampf(float(person.get("hunger", 0.0)) + restored * 0.05, 0.0, 1.0)
 			person["sleep"] = clampf(float(person.get("sleep", 1.0)) - 0.02 * hours, 0.0, 1.0)
 		ACTIVITY_SLEEP:
-			## Full rest in an open Crew Quarters bunk; pool sleep is weaker.
-			var sleep_rate := 0.3
+			## Bunk sleep fills Rest over the sleep shift; pool nap is slower.
+			var sleep_hours := maxf(_sleep_duration_hours(), 0.1)
+			var sleep_rate := 0.65 / sleep_hours
 			if (
 				duty == DUTY_COMPARTMENT
 				and str(person.get("compartment_id", "")) == CREW_QUARTERS_ID
 			):
-				sleep_rate = 0.55
+				sleep_rate = 1.0 / sleep_hours
 			person["sleep"] = clampf(float(person.get("sleep", 0.0)) + sleep_rate * hours, 0.0, 1.0)
 			person["hunger"] = clampf(float(person.get("hunger", 1.0)) - 0.03 * hours, 0.0, 1.0)
 			person["fun"] = clampf(float(person.get("fun", 1.0)) - 0.02 * hours, 0.0, 1.0)
 		ACTIVITY_FUN:
-			## Full recovery only in an open Recreation post; pool fun is a weak fallback.
-			var fun_rate := 0.15
+			## Lounge post fills Fun over the recreation shift; pool is weaker.
+			var fun_hours := maxf(_fun_duration_hours(), 0.1)
+			var fun_rate := 0.55 / fun_hours
 			if (
 				duty == DUTY_COMPARTMENT
 				and str(person.get("compartment_id", "")) == "recreation"
 			):
-				fun_rate = 0.55
+				fun_rate = 1.0 / fun_hours
 			person["fun"] = clampf(float(person.get("fun", 0.0)) + fun_rate * hours, 0.0, 1.0)
 			person["hunger"] = clampf(float(person.get("hunger", 1.0)) - 0.04 * hours, 0.0, 1.0)
 			person["sleep"] = clampf(float(person.get("sleep", 1.0)) - 0.03 * hours, 0.0, 1.0)
@@ -1654,9 +1848,9 @@ func _tick_person_needs(person: Dictionary, hours: float) -> void:
 			person["fun"] = clampf(float(person.get("fun", 1.0)) - 0.03 * hours, 0.0, 1.0)
 
 
-func _reset_work_slots() -> void:
-	_work_slots.clear()
-	_ensure_all_work_slots()
+func _reset_staff_targets() -> void:
+	_staff_target.clear()
+	_ensure_all_staff_targets()
 
 
 func _reset_eat_slots() -> void:
@@ -1669,58 +1863,89 @@ func _reset_sleep_slots() -> void:
 	_ensure_sleep_slots()
 
 
-func _ensure_all_work_slots() -> void:
+func _ensure_all_staff_targets() -> void:
 	for compartment_id in ShipData.CARRIER_COMPARTMENTS:
-		_ensure_compartment_slots(compartment_id)
+		_ensure_staff_target(compartment_id)
 
 
-func _ensure_compartment_slots(compartment_id: String) -> void:
-	var leisure := is_leisure_compartment(compartment_id)
-	if not _work_slots.has(compartment_id):
-		var slots: Array = []
-		slots.resize(CREW_PER_COMPARTMENT)
-		for i in CREW_PER_COMPARTMENT:
-			slots[i] = leisure
-		_work_slots[compartment_id] = slots
+func _ensure_staff_target(compartment_id: String) -> void:
+	if ShipData.get_compartment_def(compartment_id).is_empty():
 		return
-	var slots: Array = _work_slots[compartment_id]
-	while slots.size() < CREW_PER_COMPARTMENT:
-		slots.append(leisure)
-	if slots.size() > CREW_PER_COMPARTMENT:
-		slots.resize(CREW_PER_COMPARTMENT)
-	if leisure:
-		for i in slots.size():
-			slots[i] = true
+	var cap := get_max_assignable(compartment_id)
+	if not _staff_target.has(compartment_id):
+		## Team-style: player raises max; do not auto-open every post.
+		_staff_target[compartment_id] = cap if is_leisure_compartment(compartment_id) else 0
+		return
+	_staff_target[compartment_id] = clampi(int(_staff_target[compartment_id]), 0, cap)
+	if is_leisure_compartment(compartment_id):
+		_staff_target[compartment_id] = cap
+
+
+func _apply_starter_staff_targets() -> void:
+	for compartment_id in STARTER_STAFF_TARGETS.keys():
+		if ShipData.count_installed(str(compartment_id)) <= 0:
+			continue
+		set_staff_target(str(compartment_id), int(STARTER_STAFF_TARGETS[compartment_id]), false)
+
+
+func _fill_staff_vacancies(compartment_id: String) -> void:
+	for slot_i in get_staff_target(compartment_id):
+		if get_slot_crew_id(compartment_id, slot_i) != "":
+			continue
+		if is_leisure_compartment(compartment_id):
+			var needy := _first_fun_needy_id()
+			if needy == "":
+				return
+			move_crew_to_slot(needy, compartment_id, slot_i)
+		else:
+			var worker := _first_fillable_worker_id()
+			if worker == "":
+				return
+			move_crew_to_slot(worker, compartment_id, slot_i)
 
 
 func _ensure_eat_slots() -> void:
-	if _eat_slots.is_empty():
-		_eat_slots.resize(EAT_SLOT_COUNT)
-		for i in EAT_SLOT_COUNT:
-			_eat_slots[i] = true
+	var want := maxi(get_eat_seat_capacity(), 0)
+	if want <= 0:
+		_eat_slots.clear()
 		return
-	while _eat_slots.size() < EAT_SLOT_COUNT:
-		_eat_slots.append(true)
-	if _eat_slots.size() > EAT_SLOT_COUNT:
-		_eat_slots.resize(EAT_SLOT_COUNT)
+	if _eat_slots.size() != want:
+		_eat_slots.resize(want)
 	for i in _eat_slots.size():
 		_eat_slots[i] = true
 
 
-func _load_work_slots(saved) -> void:
-	_reset_work_slots()
+func _load_staff_targets(saved) -> void:
+	_reset_staff_targets()
 	if typeof(saved) != TYPE_DICTIONARY:
-		for compartment_id in START_OPEN_SLOTS:
-			set_slot_open(compartment_id, 0, true, false)
+		_apply_starter_staff_targets()
 		return
+	var loaded_any := false
+	var all_at_cap := true
 	for key in saved.keys():
 		var compartment_id := str(key)
-		_ensure_compartment_slots(compartment_id)
-		var raw = saved[key]
-		if typeof(raw) != TYPE_ARRAY:
+		if ShipData.get_compartment_def(compartment_id).is_empty():
 			continue
-		for i in mini(raw.size(), CREW_PER_COMPARTMENT):
-			_work_slots[compartment_id][i] = bool(raw[i])
+		if is_leisure_compartment(compartment_id):
+			continue
+		var raw = saved[key]
+		var amount := 0
+		if typeof(raw) == TYPE_ARRAY:
+			## Migrate old open/closed slot flags → count of opens.
+			for flag in raw:
+				if bool(flag):
+					amount += 1
+		else:
+			amount = maxi(int(raw), 0)
+		set_staff_target(compartment_id, amount, false)
+		loaded_any = true
+		var cap := get_max_assignable(compartment_id)
+		if cap > 0 and amount < cap:
+			all_at_cap = false
+	## Old saves defaulted every post open — convert to starter maxes so the player allocates.
+	if not loaded_any or all_at_cap:
+		_reset_staff_targets()
+		_apply_starter_staff_targets()
 
 
 func _load_eat_slots(_saved) -> void:
@@ -1729,15 +1954,12 @@ func _load_eat_slots(_saved) -> void:
 
 
 func _ensure_sleep_slots() -> void:
-	if _sleep_slots.is_empty():
-		_sleep_slots.resize(SLEEP_SLOT_COUNT)
-		for i in SLEEP_SLOT_COUNT:
-			_sleep_slots[i] = true
+	var want := maxi(get_sleep_bunk_capacity(), 0)
+	if want <= 0:
+		_sleep_slots.clear()
 		return
-	while _sleep_slots.size() < SLEEP_SLOT_COUNT:
-		_sleep_slots.append(true)
-	if _sleep_slots.size() > SLEEP_SLOT_COUNT:
-		_sleep_slots.resize(SLEEP_SLOT_COUNT)
+	if _sleep_slots.size() != want:
+		_sleep_slots.resize(want)
 	for i in _sleep_slots.size():
 		_sleep_slots[i] = true
 

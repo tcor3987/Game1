@@ -16,6 +16,7 @@ const VIEW_SCENES := {
 @onready var _mode_box: PanelContainer = %ModeBox
 @onready var _mode_green: Button = %ModeGreenButton
 @onready var _mode_yellow: Button = %ModeYellowButton
+@onready var _mode_orange: Button = %ModeOrangeButton
 @onready var _mode_red: Button = %ModeRedButton
 @onready var _overview_button: Button = %OverviewButton
 @onready var _map_button: Button = %MapButton
@@ -50,6 +51,7 @@ func _style_mode_buttons() -> void:
 	_mode_box.add_theme_stylebox_override("panel", box)
 	_apply_mode_style(_mode_green, Color(0.25, 0.75, 0.35, 1.0))
 	_apply_mode_style(_mode_yellow, Color(0.9, 0.75, 0.2, 1.0))
+	_apply_mode_style(_mode_orange, Color(0.95, 0.55, 0.2, 1.0))
 	_apply_mode_style(_mode_red, Color(0.85, 0.25, 0.22, 1.0))
 
 
@@ -85,6 +87,7 @@ func _on_mode_changed(mode: String) -> void:
 func _sync_mode_buttons(mode: String) -> void:
 	_mode_green.set_pressed_no_signal(mode == CrewData.MODE_GREEN)
 	_mode_yellow.set_pressed_no_signal(mode == CrewData.MODE_YELLOW)
+	_mode_orange.set_pressed_no_signal(mode == CrewData.MODE_ORANGE)
 	_mode_red.set_pressed_no_signal(mode == CrewData.MODE_RED)
 
 
@@ -95,6 +98,11 @@ func _on_mode_green_pressed() -> void:
 
 func _on_mode_yellow_pressed() -> void:
 	CrewData.set_alert_mode(CrewData.MODE_YELLOW)
+	_sync_mode_buttons(CrewData.get_alert_mode())
+
+
+func _on_mode_orange_pressed() -> void:
+	CrewData.set_alert_mode(CrewData.MODE_ORANGE)
 	_sync_mode_buttons(CrewData.get_alert_mode())
 
 
