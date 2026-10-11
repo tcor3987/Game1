@@ -39,14 +39,12 @@ func read_save(slot: int) -> Dictionary:
 
 func write_save(slot: int) -> void:
 	var data := {
-		"version": 8,
+		"version": 9,
 		"saved_at": Time.get_unix_time_from_system(),
 		"ship": ShipData.to_save_dict(),
 		"time": GameTime.to_save_dict(),
-		"crew": CrewData.to_save_dict(),
 		"fleet": FleetData.to_save_dict(),
 		"missions": MissionData.to_save_dict(),
-		"control_teams": ControlTeamData.to_save_dict(),
 	}
 	var file := FileAccess.open(slot_path(slot), FileAccess.WRITE)
 	if file == null:
@@ -82,7 +80,6 @@ func start_new_game() -> void:
 	CrewData.reset_for_new_game()
 	FleetData.reset_for_new_game()
 	MissionData.reset_for_new_game()
-	ControlTeamData.reset_for_new_game()
 	active_slot = first_empty_slot()
 	get_tree().call_deferred("change_scene_to_file", GAME_SCENE)
 
@@ -109,28 +106,18 @@ func load_slot(slot: int) -> void:
 		GameTime.apply_save_dict(time_data)
 	else:
 		GameTime.reset_for_new_game()
-	var crew_data = data.get("crew", {})
-	if typeof(crew_data) == TYPE_DICTIONARY:
-		CrewData.apply_save_dict(crew_data)
-	else:
-		CrewData.reset_for_new_game()
+	CrewData.reset_for_new_game()
 	var fleet_data = data.get("fleet", {})
 	if typeof(fleet_data) == TYPE_DICTIONARY:
 		FleetData.apply_save_dict(fleet_data)
 	else:
 		FleetData.reset_for_new_game()
-	## Pilots must match craft left in the field after fleet load.
-	CrewData.sync_pilots_to_deployed(FleetData.deployed_bodies)
 	var mission_data = data.get("missions", {})
 	if typeof(mission_data) == TYPE_DICTIONARY:
 		MissionData.apply_save_dict(mission_data)
 	else:
 		MissionData.reset_for_new_game()
-	var teams_data = data.get("control_teams", {})
-	if typeof(teams_data) == TYPE_DICTIONARY:
-		ControlTeamData.apply_save_dict(teams_data)
-	else:
-		ControlTeamData.reset_for_new_game()
+	## Migrate: park any leftover control-team members from old saves as ignored.
 	get_tree().call_deferred("change_scene_to_file", GAME_SCENE)
 
 

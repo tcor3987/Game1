@@ -101,7 +101,8 @@ func get_operation_multiplier() -> float:
 
 
 func has_pilot() -> bool:
-	return crew_count >= FleetData.PILOT_REQUIRED
+	## Crew system removed — treat deployed craft as piloted.
+	return true
 
 
 func is_miner() -> bool:
@@ -647,12 +648,10 @@ func _apply_visuals() -> void:
 			body.color = Color(0.95, 0.82, 0.35, 1)
 		"salvage":
 			body.color = Color(0.65, 0.85, 0.55, 1)
-		"cargo", "ore_hauler", "fuel", "ammo":
+		"carrier", "cargo":
 			body.color = Color(0.55, 0.72, 0.95, 1)
-		"passenger", "transport":
-			body.color = Color(0.5, 0.85, 0.95, 1)
-		"expedition":
-			body.color = Color(0.75, 0.65, 0.95, 1)
+		"probe":
+			body.color = Color(0.85, 0.75, 0.45, 1)
 		"scout":
 			body.color = Color(0.55, 0.95, 0.85, 1)
 		_:

@@ -73,6 +73,7 @@ const INVENTORY_ITEM_CAP := 100.0
 
 ## Mothership inventory stores (separate from raw ore / refined resources).
 const SUPPLY_ORDER := [
+	"probes",
 	"life_support",
 	"munitions",
 	"medical",
@@ -81,6 +82,12 @@ const SUPPLY_ORDER := [
 ]
 
 const SUPPLY_DEFS := {
+	"probes": {
+		"name": "Sensor Probes",
+		"description": "Disposable probes for identifying sensor contacts.",
+		"capacity": 20.0,
+		"start": 3.0,
+	},
 	"life_support": {
 		"name": "Life Support Supplies",
 		"description": "Filters, O₂ scrubbers, and coolant for habitat decks.",
@@ -262,7 +269,7 @@ var map_rotation: float = 0.0
 var selected_on_map: bool = true
 ## Raw ore offloaded by cargo shuttles. Needs a crewed refinery to become resources.
 var ore: float = 0.0
-## Refined currency produced from ore.
+## Refined resources used to assemble craft on the Carrier.
 var resources: float = 0.0
 ## Greenhouse raw food waiting for kitchen (food) and mess hall (fresh meals).
 var produce: float = 0.0
@@ -301,8 +308,8 @@ func reset_for_new_game() -> void:
 	map_rotation = 0.0
 	selected_on_map = true
 	ore = 0.0
-	## Enough to build a starter miner before salvage income comes online.
-	resources = 40.0
+	## Starter pool so the Carrier can assemble a few craft.
+	resources = 100.0
 	produce = 0.0
 	meals = 0.0
 	_reset_supplies_to_start()
@@ -975,10 +982,15 @@ func _reset_supplies_to_start() -> void:
 func _load_supplies(saved) -> void:
 	_reset_supplies_to_start()
 	if typeof(saved) != TYPE_DICTIONARY:
+		## Fresh / missing supplies blob — keep starter stock.
 		return
 	for supply_id in SUPPLY_ORDER:
 		if saved.has(supply_id):
 			supplies[supply_id] = clampf(float(saved[supply_id]), 0.0, get_supply_capacity(supply_id))
+		elif supply_id == "probes":
+			## Pre-inventory saves stored probes as hangar craft — start at 0;
+			## FleetData migrates those rows into this supply.
+			supplies[supply_id] = 0.0
 
 
 func _ensure_modules() -> void:

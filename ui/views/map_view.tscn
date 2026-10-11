@@ -1,7 +1,6 @@
-[gd_scene load_steps=3 format=3 uid="uid://cmapview000001"]
+[gd_scene load_steps=2 format=3 uid="uid://cykhpajypyiuq"]
 
 [ext_resource type="Script" path="res://ui/views/map_view.gd" id="1_map"]
-[ext_resource type="PackedScene" uid="uid://crtsShip000001" path="res://ship/rts_ship.tscn" id="2_ship"]
 
 [node name="MapView" type="Control"]
 process_mode = 3
@@ -30,7 +29,7 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 280.0
-offset_top = 148.0
+offset_top = 236.0
 offset_right = -168.0
 offset_bottom = -8.0
 grow_horizontal = 2
@@ -142,13 +141,9 @@ visible = false
 color = Color(0.4, 1, 0.7, 0.45)
 polygon = PackedVector2Array(-10, -10, 10, -10, 10, 10, -10, 10)
 
-[node name="RtsShip" parent="ViewportHost/MapViewport/World" instance=ExtResource("2_ship")]
-unique_name_in_owner = true
-position = Vector2(700, 420)
-
 [node name="Camera" type="Camera2D" parent="ViewportHost/MapViewport/World"]
 unique_name_in_owner = true
-position = Vector2(700, 420)
+position = Vector2(2400, 1600)
 
 [node name="TopHud" type="MarginContainer" parent="."]
 layout_mode = 1
@@ -156,7 +151,7 @@ anchors_preset = 10
 anchor_right = 1.0
 offset_left = 280.0
 offset_right = -168.0
-offset_bottom = 140.0
+offset_bottom = 228.0
 grow_horizontal = 2
 mouse_filter = 0
 theme_override_constants/margin_left = 12
@@ -181,6 +176,49 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.75, 0.85, 1, 1)
 theme_override_font_sizes/font_size = 13
 text = "Fleet"
+
+[node name="DeployBar" type="PanelContainer" parent="TopHud/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+size_flags_vertical = 0
+
+[node name="DeployRow" type="HBoxContainer" parent="TopHud/VBox/DeployBar"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="DeployTitle" type="Label" parent="TopHud/VBox/DeployBar/DeployRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(64, 0)
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(0.85, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 12
+text = "Deploy
+(0)"
+vertical_alignment = 1
+
+[node name="DeployScroll" type="ScrollContainer" parent="TopHud/VBox/DeployBar/DeployRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 1
+vertical_scroll_mode = 0
+
+[node name="DeployChips" type="HBoxContainer" parent="TopHud/VBox/DeployBar/DeployRow/DeployScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 4
+
+[node name="DeployAllButton" type="Button" parent="TopHud/VBox/DeployBar/DeployRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(110, 48)
+layout_mode = 2
+size_flags_vertical = 4
+text = "All"
+tooltip_text = "Deploy all arrived craft near the approach point"
+disabled = true
 
 [node name="SelectionBar" type="MarginContainer" parent="."]
 layout_mode = 1
@@ -233,21 +271,8 @@ layout_mode = 2
 size_flags_vertical = 0
 theme_override_colors/font_color = Color(0.78, 0.84, 0.98, 1)
 theme_override_font_sizes/font_size = 12
-text = "Select mothership, craft, site, or team."
+text = "Select craft, site, or team."
 autowrap_mode = 3
-
-[node name="SelectionScroll" type="ScrollContainer" parent="SelectionBar/Panel/Margin/VBox"]
-layout_mode = 2
-size_flags_vertical = 3
-size_flags_stretch_ratio = 2.0
-horizontal_scroll_mode = 0
-vertical_scroll_mode = 1
-
-[node name="SelectionActions" type="VBoxContainer" parent="SelectionBar/Panel/Margin/VBox/SelectionScroll"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 6
 
 [node name="CommandsHeader" type="Label" parent="SelectionBar/Panel/Margin/VBox"]
 layout_mode = 2
@@ -257,6 +282,7 @@ text = "Commands"
 horizontal_alignment = 1
 
 [node name="CmdGrid" type="GridContainer" parent="SelectionBar/Panel/Margin/VBox"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 0
 theme_override_constants/h_separation = 6
@@ -285,23 +311,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(46, 46)
 layout_mode = 2
 size_flags_horizontal = 3
-tooltip_text = "Return to mothership"
-expand_icon = true
-
-[node name="CmdMineButton" type="Button" parent="SelectionBar/Panel/Margin/VBox/CmdGrid"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(46, 46)
-layout_mode = 2
-size_flags_horizontal = 3
-tooltip_text = "Mine nearest asteroid"
-expand_icon = true
-
-[node name="CmdRecycleButton" type="Button" parent="SelectionBar/Panel/Margin/VBox/CmdGrid"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(46, 46)
-layout_mode = 2
-size_flags_horizontal = 3
-tooltip_text = "Recycle nearest derelict"
+tooltip_text = "Warp out — return to Carrier hangar"
 expand_icon = true
 
 [node name="CmdDockButton" type="Button" parent="SelectionBar/Panel/Margin/VBox/CmdGrid"]
@@ -309,7 +319,8 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(46, 46)
 layout_mode = 2
 size_flags_horizontal = 3
-tooltip_text = "Dock with nearest craft or object"
+toggle_mode = true
+tooltip_text = "Dock — LMB target"
 expand_icon = true
 
 [node name="CmdAttackButton" type="Button" parent="SelectionBar/Panel/Margin/VBox/CmdGrid"]
@@ -317,16 +328,74 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(46, 46)
 layout_mode = 2
 size_flags_horizontal = 3
-tooltip_text = "Attack nearest"
+toggle_mode = true
+tooltip_text = "Attack — LMB enemy"
 expand_icon = true
 
-[node name="CmdRecallButton" type="Button" parent="SelectionBar/Panel/Margin/VBox/CmdGrid"]
+[node name="CmdScoutButton" type="Button" parent="SelectionBar/Panel/Margin/VBox/CmdGrid"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(46, 46)
 layout_mode = 2
 size_flags_horizontal = 3
-tooltip_text = "Recall — fly to mothership and dock"
+toggle_mode = true
+tooltip_text = "Scout — LMB unscanned site"
 expand_icon = true
+
+[node name="CmdMineButton" type="Button" parent="SelectionBar/Panel/Margin/VBox/CmdGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(46, 46)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+tooltip_text = "Mine — LMB asteroid"
+expand_icon = true
+
+[node name="CmdTransferButton" type="Button" parent="SelectionBar/Panel/Margin/VBox/CmdGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(46, 46)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+tooltip_text = "Transfer — LMB stockpile / wreck"
+expand_icon = true
+
+[node name="CmdExploreWreckButton" type="Button" parent="SelectionBar/Panel/Margin/VBox/CmdGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(46, 46)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+tooltip_text = "Explore wreck — LMB derelict"
+expand_icon = true
+
+[node name="CmdRecycleButton" type="Button" parent="SelectionBar/Panel/Margin/VBox/CmdGrid"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(46, 46)
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Recycle nearest derelict"
+expand_icon = true
+
+[node name="ContextCmdFlow" type="HFlowContainer" parent="SelectionBar/Panel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 0
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 4
+
+[node name="SelectionScroll" type="ScrollContainer" parent="SelectionBar/Panel/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+size_flags_stretch_ratio = 2.0
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 1
+
+[node name="SelectionActions" type="VBoxContainer" parent="SelectionBar/Panel/Margin/VBox/SelectionScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
 
 [node name="SideBar" type="MarginContainer" parent="."]
 layout_mode = 1
@@ -383,10 +452,12 @@ tooltip_text = "New control team"
 
 [node name="RecallButton" type="Button" parent="SideBar/Panel/Margin/VBox"]
 unique_name_in_owner = true
+visible = false
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
+text = "Warp out"
 expand_icon = true
-tooltip_text = "Recall strike craft"
+tooltip_text = "Warp out — selected craft (or all) return to Carrier hangar"
 
 [node name="HintLabel" type="Label" parent="SideBar/Panel/Margin/VBox"]
 unique_name_in_owner = true
@@ -400,10 +471,12 @@ autowrap_mode = 3
 [connection signal="toggled" from="SelectionBar/Panel/Margin/VBox/CmdGrid/CmdMoveButton" to="." method="_on_cmd_move_toggled"]
 [connection signal="pressed" from="SelectionBar/Panel/Margin/VBox/CmdGrid/CmdStopButton" to="." method="_on_cmd_stop_pressed"]
 [connection signal="pressed" from="SelectionBar/Panel/Margin/VBox/CmdGrid/CmdReturnButton" to="." method="_on_cmd_return_pressed"]
-[connection signal="pressed" from="SelectionBar/Panel/Margin/VBox/CmdGrid/CmdMineButton" to="." method="_on_cmd_mine_pressed"]
+[connection signal="toggled" from="SelectionBar/Panel/Margin/VBox/CmdGrid/CmdMineButton" to="." method="_on_cmd_mine_toggled"]
 [connection signal="pressed" from="SelectionBar/Panel/Margin/VBox/CmdGrid/CmdRecycleButton" to="." method="_on_cmd_recycle_pressed"]
-[connection signal="pressed" from="SelectionBar/Panel/Margin/VBox/CmdGrid/CmdDockButton" to="." method="_on_cmd_dock_pressed"]
-[connection signal="pressed" from="SelectionBar/Panel/Margin/VBox/CmdGrid/CmdAttackButton" to="." method="_on_cmd_attack_pressed"]
-[connection signal="pressed" from="SelectionBar/Panel/Margin/VBox/CmdGrid/CmdRecallButton" to="." method="_on_cmd_recall_pressed"]
+[connection signal="toggled" from="SelectionBar/Panel/Margin/VBox/CmdGrid/CmdDockButton" to="." method="_on_cmd_dock_toggled"]
+[connection signal="toggled" from="SelectionBar/Panel/Margin/VBox/CmdGrid/CmdAttackButton" to="." method="_on_cmd_attack_toggled"]
+[connection signal="toggled" from="SelectionBar/Panel/Margin/VBox/CmdGrid/CmdScoutButton" to="." method="_on_cmd_scout_toggled"]
+[connection signal="toggled" from="SelectionBar/Panel/Margin/VBox/CmdGrid/CmdTransferButton" to="." method="_on_cmd_transfer_toggled"]
+[connection signal="toggled" from="SelectionBar/Panel/Margin/VBox/CmdGrid/CmdExploreWreckButton" to="." method="_on_cmd_explore_wreck_toggled"]
 [connection signal="pressed" from="SideBar/Panel/Margin/VBox/NewTeamButton" to="." method="_on_new_team_pressed"]
 [connection signal="pressed" from="SideBar/Panel/Margin/VBox/RecallButton" to="." method="_on_recall_pressed"]

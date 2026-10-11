@@ -8,9 +8,9 @@ signal explored_changed(explored: bool)
 signal people_changed(count: int)
 
 @export var max_ore: float = 5000.0
-@export var radius: float = 56.0
-@export var placement_radius: float = 100.0
-@export var board_range: float = 110.0
+@export var radius: float = 110.0
+@export var placement_radius: float = 160.0
+@export var board_range: float = 150.0
 @export var explore_base_seconds: float = 6.0
 @export var stockpile_capacity: float = 200.0
 @export var people_capacity: int = 12
@@ -471,15 +471,115 @@ func can_give_ore(craft: Node) -> bool:
 
 
 func _apply_visuals() -> void:
+	## Large irregular rock cluster — main body + satellite chunks.
+	_clear_rock_chunks()
 	if not has_node("Body"):
 		return
 	var body := $Body as Polygon2D
-	body.color = Color(0.7, 0.58, 0.4, 1)
-	body.polygon = PackedVector2Array([
-		Vector2(16, 0), Vector2(8, -12), Vector2(-10, -10), Vector2(-16, 0), Vector2(-10, 10), Vector2(8, 12)
-	])
+	body.z_index = 0
+	body.color = Color(0.62, 0.5, 0.38, 1)
+	body.polygon = _rocky_poly(Vector2.ZERO, 72.0, 11, 0.22, 0.55)
+	## Darker crater / shadow facets on the main rock.
+	_add_rock_chunk(
+		"ShadeA",
+		_rocky_poly(Vector2(-18, -8), 28.0, 7, 0.18, 1.1),
+		Color(0.42, 0.34, 0.26, 0.85),
+		-1
+	)
+	_add_rock_chunk(
+		"ShadeB",
+		_rocky_poly(Vector2(22, 14), 22.0, 6, 0.2, 2.0),
+		Color(0.48, 0.38, 0.28, 0.75),
+		-1
+	)
+	## Satellite rocks for a clustered look.
+	_add_rock_chunk(
+		"ChunkNE",
+		_rocky_poly(Vector2(78, -42), 34.0, 8, 0.28, 0.9),
+		Color(0.58, 0.46, 0.34, 1),
+		1
+	)
+	_add_rock_chunk(
+		"ChunkSW",
+		_rocky_poly(Vector2(-70, 48), 30.0, 7, 0.26, 2.4),
+		Color(0.55, 0.44, 0.32, 1),
+		1
+	)
+	_add_rock_chunk(
+		"ChunkSE",
+		_rocky_poly(Vector2(55, 58), 24.0, 6, 0.3, 3.5),
+		Color(0.66, 0.52, 0.4, 1),
+		1
+	)
+	_add_rock_chunk(
+		"ChunkNW",
+		_rocky_poly(Vector2(-52, -60), 26.0, 7, 0.24, 4.2),
+		Color(0.5, 0.4, 0.3, 1),
+		1
+	)
+	## Highlight ridge.
+	_add_rock_chunk(
+		"Highlight",
+		_rocky_poly(Vector2(8, -28), 18.0, 5, 0.15, 5.0),
+		Color(0.78, 0.66, 0.5, 0.55),
+		2
+	)
 	if has_node("SelectionRing"):
-		$SelectionRing.color = Color(0.95, 0.8, 0.4, 0.35)
+		var ring := $SelectionRing as Polygon2D
+		ring.color = Color(0.95, 0.8, 0.4, 0.28)
+		ring.polygon = _circle_poly(128.0, 28)
+		ring.z_index = -2
+	if has_node("CollisionShape2D"):
+		var col := $CollisionShape2D as CollisionShape2D
+		if col.shape is CircleShape2D:
+			(col.shape as CircleShape2D).radius = 88.0
+	if has_node("Label"):
+		var label := $Label as Label
+		label.offset_left = -80.0
+		label.offset_top = -150.0
+		label.offset_right = 80.0
+		label.offset_bottom = -110.0
+
+
+func _clear_rock_chunks() -> void:
+	for child in get_children():
+		if child is Polygon2D and str(child.name).begins_with("Rock"):
+			child.queue_free()
+
+
+func _add_rock_chunk(chunk_name: String, poly: PackedVector2Array, color: Color, z: int) -> void:
+	var node := Polygon2D.new()
+	node.name = "Rock%s" % chunk_name
+	node.polygon = poly
+	node.color = color
+	node.z_index = z
+	add_child(node)
+
+
+func _rocky_poly(center: Vector2, size: float, points: int, jagged: float, seed_salt: float) -> PackedVector2Array:
+	## Irregular asteroid silhouette (lumpy, not a clean hex).
+	var out: PackedVector2Array = []
+	var n := maxi(points, 5)
+	for i in n:
+		var t := TAU * float(i) / float(n)
+		## Deterministic wobble from angle + salt (no RNG dependency).
+		var wobble := 1.0 + jagged * sin(t * 3.0 + seed_salt) * 0.55
+		wobble += jagged * cos(t * 5.0 - seed_salt * 1.7) * 0.35
+		wobble += jagged * sin(t * 2.0 + seed_salt * 0.4) * 0.25
+		var r := size * clampf(wobble, 0.55, 1.45)
+		## Occasional hard "break" for a cratered edge.
+		if int(i + int(seed_salt * 3.0)) % 4 == 0:
+			r *= 0.72
+		out.append(center + Vector2.from_angle(t) * r)
+	return out
+
+
+func _circle_poly(r: float, segments: int) -> PackedVector2Array:
+	var out: PackedVector2Array = []
+	var n := maxi(segments, 8)
+	for i in n:
+		out.append(Vector2.from_angle(TAU * float(i) / float(n)) * r)
+	return out
 
 
 func _update_label() -> void:
