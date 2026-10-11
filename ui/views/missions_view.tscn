@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://ui/views/missions_view.gd" id="1_missions"]
 
-[node name="MissionsView" type="Control"]
+[node name="SensorsView" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -18,8 +18,8 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 0
-color = Color(0.05, 0.04, 0.08, 0)
+mouse_filter = 2
+color = Color(0.04, 0.05, 0.08, 1)
 
 [node name="Margin" type="MarginContainer" parent="."]
 layout_mode = 1
@@ -28,107 +28,124 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 24
-theme_override_constants/margin_top = 16
-theme_override_constants/margin_right = 24
-theme_override_constants/margin_bottom = 16
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 10
 
 [node name="VBox" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 8
 
-[node name="Title" type="Label" parent="Margin/VBox"]
+[node name="HeaderRow" type="HBoxContainer" parent="Margin/VBox"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.95, 0.9, 1, 1)
-theme_override_font_sizes/font_size = 32
-text = "Missions"
-horizontal_alignment = 1
+theme_override_constants/separation = 12
 
-[node name="StatusLabel" type="Label" parent="Margin/VBox"]
+[node name="Title" type="Label" parent="Margin/VBox/HeaderRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.9, 0.95, 1, 1)
+theme_override_font_sizes/font_size = 26
+text = "Sensors"
+
+[node name="ActiveScanButton" type="Button" parent="Margin/VBox/HeaderRow"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 36)
 layout_mode = 2
-theme_override_colors/font_color = Color(0.8, 0.88, 1, 1)
-theme_override_font_sizes/font_size = 15
-text = "Status"
-horizontal_alignment = 1
+focus_mode = 0
+text = "Active Scan"
 
 [node name="Columns" type="HBoxContainer" parent="Margin/VBox"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_constants/separation = 16
+theme_override_constants/separation = 12
 
 [node name="Left" type="VBoxContainer" parent="Margin/VBox/Columns"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 8
+size_flags_stretch_ratio = 0.28
+theme_override_constants/separation = 6
 
 [node name="ListHeader" type="Label" parent="Margin/VBox/Columns/Left"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.85, 0.8, 0.95, 1)
-text = "Mission board"
+theme_override_colors/font_color = Color(0.8, 0.88, 1, 1)
+text = "Contacts"
 
-[node name="MissionScroll" type="ScrollContainer" parent="Margin/VBox/Columns/Left"]
+[node name="ContactScroll" type="ScrollContainer" parent="Margin/VBox/Columns/Left"]
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="MissionList" type="VBoxContainer" parent="Margin/VBox/Columns/Left/MissionScroll"]
+[node name="ContactList" type="VBoxContainer" parent="Margin/VBox/Columns/Left/ContactScroll"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 12
+theme_override_constants/separation = 4
 
 [node name="Right" type="VBoxContainer" parent="Margin/VBox/Columns"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 8
+size_flags_stretch_ratio = 0.72
+theme_override_constants/separation = 6
 
-[node name="DetailsHeader" type="Label" parent="Margin/VBox/Columns/Right"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.85, 0.8, 0.95, 1)
-text = "Mission brief"
-
-[node name="DetailsPanel" type="PanelContainer" parent="Margin/VBox/Columns/Right"]
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="DetailsMargin" type="MarginContainer" parent="Margin/VBox/Columns/Right/DetailsPanel"]
-layout_mode = 2
-theme_override_constants/margin_left = 16
-theme_override_constants/margin_top = 16
-theme_override_constants/margin_right = 16
-theme_override_constants/margin_bottom = 16
-
-[node name="DetailsLabel" type="Label" parent="Margin/VBox/Columns/Right/DetailsPanel/DetailsMargin"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_vertical = 3
-theme_override_colors/font_color = Color(0.9, 0.88, 1, 1)
-theme_override_font_sizes/font_size = 16
-text = "Details"
-autowrap_mode = 3
-
-[node name="DriveLabel" type="Label" parent="Margin/VBox/Columns/Right"]
-unique_name_in_owner = true
+[node name="MapHeader" type="Label" parent="Margin/VBox/Columns/Right"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.88, 1, 1)
-theme_override_font_sizes/font_size = 14
-text = "Jump Drive"
-autowrap_mode = 3
+text = "Sensor map (AU)"
 
-[node name="ChargeButton" type="Button" parent="Margin/VBox/Columns/Right"]
+[node name="SensorMap" type="Control" parent="Margin/VBox/Columns/Right"]
 unique_name_in_owner = true
+clip_contents = true
 layout_mode = 2
-text = "Charge Jump Drive (90s)"
-
-[node name="JumpButton" type="Button" parent="Margin/VBox/Columns/Right"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Jump to mission"
+size_flags_vertical = 3
+mouse_filter = 0
 
 [node name="Hint" type="Label" parent="Margin/VBox"]
+unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.7, 0.75, 0.9, 1)
-theme_override_font_sizes/font_size = 14
-text = "Crew Jump Drive → charge 90s (destroys undocked craft) → jump. Scan wrecks with scouts, clear threats with combat shuttles."
+theme_override_colors/font_color = Color(0.65, 0.72, 0.88, 1)
+theme_override_font_sizes/font_size = 12
+text = "Click a contact on the map for its signal info. Active Scan reveals hidden sites. Probes identify unknowns."
 horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="ModalRoot" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+z_index = 20
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
+[node name="ModalDim" type="ColorRect" parent="ModalRoot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+color = Color(0.02, 0.03, 0.06, 0.35)
+
+[node name="ModalPanel" type="PanelContainer" parent="ModalRoot"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(360, 0)
+layout_mode = 0
+offset_right = 360.0
+mouse_filter = 0
+
+[node name="PopupMargin" type="MarginContainer" parent="ModalRoot/ModalPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
+
+[node name="PopupVBox" type="VBoxContainer" parent="ModalRoot/ModalPanel/PopupMargin"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8

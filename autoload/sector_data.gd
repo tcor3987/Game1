@@ -1,7 +1,7 @@
 extends Node
 
 ## Legacy constants kept for spawn defaults / fallbacks.
-const SAFE_ZONE_NAME := "Haven Anchorage"
+const SAFE_ZONE_NAME := "Open Space"
 const SAFE_ZONE_CENTER := Vector2(700, 420)
 const SAFE_ZONE_RADIUS := 320.0
 

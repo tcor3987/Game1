@@ -700,24 +700,28 @@ func _apply_visuals() -> void:
 	match craft_id:
 		"bomber":
 			body.color = Color(0.55, 0.4, 0.35, 1)
-			body.polygon = PackedVector2Array([
-				Vector2(16, 0), Vector2(-12, -10), Vector2(-6, 0), Vector2(-12, 10)
-			])
+			var bomber_poly: PackedVector2Array = [
+				Vector2(16, 0), Vector2(-12, -10), Vector2(-6, 0), Vector2(-12, 10),
+			]
+			body.polygon = bomber_poly
 		"transport", "shuttle", "rescue", "expedition":
 			body.color = Color(0.4, 0.55, 0.65, 1)
-			body.polygon = PackedVector2Array([
-				Vector2(13, 0), Vector2(2, -9), Vector2(-12, -6), Vector2(-8, 0), Vector2(-12, 6), Vector2(2, 9)
-			])
+			var transport_poly: PackedVector2Array = [
+				Vector2(13, 0), Vector2(2, -9), Vector2(-12, -6), Vector2(-8, 0), Vector2(-12, 6), Vector2(2, 9),
+			]
+			body.polygon = transport_poly
 		"cargo", "cargo_shuttle", "mining", "salvage":
 			body.color = Color(0.5, 0.48, 0.35, 1)
-			body.polygon = PackedVector2Array([
-				Vector2(14, 0), Vector2(6, -11), Vector2(-12, -10), Vector2(-16, 0), Vector2(-12, 10), Vector2(6, 11)
-			])
+			var cargo_poly: PackedVector2Array = [
+				Vector2(14, 0), Vector2(6, -11), Vector2(-12, -10), Vector2(-16, 0), Vector2(-12, 10), Vector2(6, 11),
+			]
+			body.polygon = cargo_poly
 		_:
 			body.color = Color(0.42, 0.45, 0.5, 1)
-			body.polygon = PackedVector2Array([
-				Vector2(14, 0), Vector2(-10, -7), Vector2(-4, 0), Vector2(-10, 7)
-			])
+			var default_poly: PackedVector2Array = [
+				Vector2(14, 0), Vector2(-10, -7), Vector2(-4, 0), Vector2(-10, 7),
+			]
+			body.polygon = default_poly
 	if ring != null:
 		ring.color = Color(0.55, 0.85, 1.0, 0.35)
 

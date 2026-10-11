@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://ship/asteroid.gd" id="1_asteroid"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_body"]
-radius = 18.0
+radius = 88.0
 
 [node name="Asteroid" type="CharacterBody2D"]
 process_mode = 3
@@ -14,22 +14,22 @@ script = ExtResource("1_asteroid")
 
 [node name="SelectionRing" type="Polygon2D" parent="."]
 visible = false
-z_index = -1
-color = Color(0.95, 0.8, 0.4, 0.35)
-polygon = PackedVector2Array(-24, -24, 24, -24, 24, 24, -24, 24)
+z_index = -2
+color = Color(0.95, 0.8, 0.4, 0.28)
+polygon = PackedVector2Array(-128, 0, -111, -64, -64, -111, 0, -128, 64, -111, 111, -64, 128, 0, 111, 64, 64, 111, 0, 128, -64, 111, -111, 64)
 
 [node name="Body" type="Polygon2D" parent="."]
-color = Color(0.7, 0.58, 0.4, 1)
-polygon = PackedVector2Array(16, 0, 8, -12, -10, -10, -16, 0, -10, 10, 8, 12)
+color = Color(0.62, 0.5, 0.38, 1)
+polygon = PackedVector2Array(72, 0, 50, -48, 8, -70, -42, -58, -70, -18, -68, 30, -36, 62, 12, 70, 54, 44)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_body")
 
 [node name="Label" type="Label" parent="."]
-offset_left = -56.0
-offset_top = -78.0
-offset_right = 56.0
-offset_bottom = -40.0
+offset_left = -80.0
+offset_top = -150.0
+offset_right = 80.0
+offset_bottom = -110.0
 theme_override_colors/font_color = Color(0.95, 0.88, 0.75, 1)
 theme_override_font_sizes/font_size = 14
 text = "Asteroid

@@ -60,10 +60,11 @@ text = "Overview"
 
 [node name="MapButton" type="Button" parent="Root/TopBar/Margin/BarRow/Buttons"]
 unique_name_in_owner = true
+visible = false
 custom_minimum_size = Vector2(90, 40)
 layout_mode = 2
 toggle_mode = true
-text = "Map"
+text = "Location"
 
 [node name="HangarButton" type="Button" parent="Root/TopBar/Margin/BarRow/Buttons"]
 unique_name_in_owner = true
@@ -91,7 +92,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(100, 40)
 layout_mode = 2
 toggle_mode = true
-text = "Missions"
+text = "Sensors"
 
 [node name="BarSpacer" type="Control" parent="Root/TopBar/Margin/BarRow"]
 layout_mode = 2
