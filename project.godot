@@ -11,8 +11,8 @@ config_version=5
 [application]
 
 config/name="Game Template"
-config/description="A basic 2D Blazium starter with a player, arena, and HUD."
-run/main_scene="res://ui/main_menu.tscn"
+config/description="A basic 2D Blazium starter with a main menu."
+run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.3.2", "GL Compatibility")
 config/icon="res://icon.svg"
 
@@ -20,13 +20,7 @@ config/icon="res://icon.svg"
 
 SaveManager="*res://autoload/save_manager.gd"
 GameSettings="*res://autoload/game_settings.gd"
-SectorData="*res://autoload/sector_data.gd"
-ShipData="*res://autoload/ship_data.gd"
-GameTime="*res://autoload/game_time.gd"
-CrewData="*res://autoload/crew_data.gd"
-FleetData="*res://autoload/fleet_data.gd"
-ControlTeamData="*res://autoload/control_team_data.gd"
-MissionData="*res://autoload/mission_data.gd"
+GameState="*res://autoload/game_state.gd"
 
 [blazium]
 

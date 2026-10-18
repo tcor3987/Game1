@@ -1,0 +1,145 @@
+[gd_scene load_steps=2 format=3 uid="uid://cmapscene00001"]
+
+[ext_resource type="Script" path="res://scenes/map.gd" id="1_map"]
+
+[node name="Map" type="Node2D"]
+script = ExtResource("1_map")
+
+[node name="World" type="Node2D" parent="."]
+
+[node name="Backdrop" type="Polygon2D" parent="World"]
+z_index = -10
+color = Color(0.04, 0.05, 0.1, 1)
+polygon = PackedVector2Array(0, 0, 1280, 0, 1280, 720, 0, 720)
+
+[node name="Grid" type="Node2D" parent="World"]
+z_index = -9
+
+[node name="Sites" type="Node2D" parent="World"]
+
+[node name="Transit" type="Node2D" parent="World"]
+
+[node name="MoveMarker" type="Node2D" parent="World"]
+visible = false
+
+[node name="Ring" type="Polygon2D" parent="World/MoveMarker"]
+color = Color(0.95, 0.85, 0.4, 0.45)
+polygon = PackedVector2Array(10, 0, 0, 10, -10, 0, 0, -10)
+
+[node name="Mothership" type="Node2D" parent="World"]
+position = Vector2(640, 360)
+
+[node name="Body" type="Polygon2D" parent="World/Mothership"]
+color = Color(0.55, 0.75, 0.95, 1)
+polygon = PackedVector2Array(28, 0, -18, -14, -8, 0, -18, 14)
+
+[node name="Glow" type="Polygon2D" parent="World/Mothership"]
+z_index = -1
+color = Color(0.4, 0.65, 0.95, 0.25)
+polygon = PackedVector2Array(40, 0, -24, -22, -12, 0, -24, 22)
+
+[node name="Camera" type="Camera2D" parent="."]
+position = Vector2(640, 360)
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="TopBar" type="PanelContainer" parent="HUD"]
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 52.0
+grow_horizontal = 2
+
+[node name="Margin" type="MarginContainer" parent="HUD/TopBar"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="Row" type="HBoxContainer" parent="HUD/TopBar/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="OreLabel" type="Label" parent="HUD/TopBar/Margin/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Ore 0"
+
+[node name="HangarLabel" type="Label" parent="HUD/TopBar/Margin/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Hangar 0"
+
+[node name="BuildButton" type="Button" parent="HUD/TopBar/Margin/Row"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(140, 0)
+layout_mode = 2
+text = "Build craft (25)"
+
+[node name="HintLabel" type="Label" parent="HUD/TopBar/Margin/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Click map to move mothership · Click a site to assign quotas"
+horizontal_alignment = 2
+
+[node name="SitePopup" type="PanelContainer" parent="HUD"]
+unique_name_in_owner = true
+visible = false
+offset_right = 260.0
+offset_bottom = 220.0
+
+[node name="Margin" type="MarginContainer" parent="HUD/SitePopup"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="VBox" type="VBoxContainer" parent="HUD/SitePopup/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="PopupTitle" type="Label" parent="HUD/SitePopup/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Site"
+
+[node name="PopupBody" type="Label" parent="HUD/SitePopup/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Details"
+
+[node name="QuotaRow" type="HBoxContainer" parent="HUD/SitePopup/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="QuotaMinus" type="Button" parent="HUD/SitePopup/Margin/VBox/QuotaRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 0)
+layout_mode = 2
+text = "-"
+
+[node name="QuotaLabel" type="Label" parent="HUD/SitePopup/Margin/VBox/QuotaRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Quota 0"
+horizontal_alignment = 1
+
+[node name="QuotaPlus" type="Button" parent="HUD/SitePopup/Margin/VBox/QuotaRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 0)
+layout_mode = 2
+text = "+"
+
+[node name="SimulateLossButton" type="Button" parent="HUD/SitePopup/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Simulate loss"
+
+[node name="PopupClose" type="Button" parent="HUD/SitePopup/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Close"

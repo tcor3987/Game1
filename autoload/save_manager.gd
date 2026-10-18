@@ -1,6 +1,7 @@
 extends Node
 
-const GAME_SCENE := "res://scenes/main.tscn"
+const GAME_SCENE := "res://scenes/map.tscn"
+const MENU_SCENE := "res://scenes/main.tscn"
 const SLOT_COUNT := 3
 const SAVE_DIR := "user://saves"
 
@@ -8,7 +9,7 @@ var active_slot: int = 0
 
 
 func _ready() -> void:
-	DirAccess.make_dir_recursive_absolute(_absolute_save_dir())
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(SAVE_DIR))
 
 
 func slot_path(slot: int) -> String:
@@ -39,12 +40,8 @@ func read_save(slot: int) -> Dictionary:
 
 func write_save(slot: int) -> void:
 	var data := {
-		"version": 9,
+		"version": 1,
 		"saved_at": Time.get_unix_time_from_system(),
-		"ship": ShipData.to_save_dict(),
-		"time": GameTime.to_save_dict(),
-		"fleet": FleetData.to_save_dict(),
-		"missions": MissionData.to_save_dict(),
 	}
 	var file := FileAccess.open(slot_path(slot), FileAccess.WRITE)
 	if file == null:
@@ -75,12 +72,8 @@ func first_empty_slot() -> int:
 
 
 func start_new_game() -> void:
-	ShipData.reset_for_new_game()
-	GameTime.reset_for_new_game()
-	CrewData.reset_for_new_game()
-	FleetData.reset_for_new_game()
-	MissionData.reset_for_new_game()
 	active_slot = first_empty_slot()
+	GameState.reset_for_new_game()
 	get_tree().call_deferred("change_scene_to_file", GAME_SCENE)
 
 
@@ -96,34 +89,8 @@ func load_slot(slot: int) -> void:
 	if data.is_empty():
 		return
 	active_slot = slot
-	var ship_data = data.get("ship", {})
-	if typeof(ship_data) == TYPE_DICTIONARY:
-		ShipData.apply_save_dict(ship_data)
-	else:
-		ShipData.reset_for_new_game()
-	var time_data = data.get("time", {})
-	if typeof(time_data) == TYPE_DICTIONARY:
-		GameTime.apply_save_dict(time_data)
-	else:
-		GameTime.reset_for_new_game()
-	CrewData.reset_for_new_game()
-	var fleet_data = data.get("fleet", {})
-	if typeof(fleet_data) == TYPE_DICTIONARY:
-		FleetData.apply_save_dict(fleet_data)
-	else:
-		FleetData.reset_for_new_game()
-	var mission_data = data.get("missions", {})
-	if typeof(mission_data) == TYPE_DICTIONARY:
-		MissionData.apply_save_dict(mission_data)
-	else:
-		MissionData.reset_for_new_game()
-	## Migrate: park any leftover control-team members from old saves as ignored.
 	get_tree().call_deferred("change_scene_to_file", GAME_SCENE)
 
 
-func save_active_game() -> void:
-	write_save(active_slot)
-
-
-func _absolute_save_dir() -> String:
-	return ProjectSettings.globalize_path(SAVE_DIR)
+func return_to_menu() -> void:
+	get_tree().call_deferred("change_scene_to_file", MENU_SCENE)

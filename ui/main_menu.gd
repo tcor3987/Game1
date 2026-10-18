@@ -4,7 +4,6 @@ extends Control
 @onready var _load_screen: Control = %LoadScreen
 @onready var _settings_screen: Control = %SettingsScreen
 @onready var _credits_screen: Control = %CreditsScreen
-@onready var _continue_button: Button = %ContinueButton
 @onready var _new_game_button: Button = %NewGameButton
 @onready var _slot_list: VBoxContainer = %SlotList
 @onready var _master_slider: HSlider = %MasterSlider
@@ -14,19 +13,15 @@ extends Control
 
 
 func _ready() -> void:
-	_refresh_menu()
 	_bind_settings_controls()
 	_show_screen(_menu_screen)
+	_new_game_button.grab_focus()
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") and not _menu_screen.visible:
 		get_viewport().set_input_as_handled()
 		_show_screen(_menu_screen)
-
-
-func _on_continue_pressed() -> void:
-	SaveManager.continue_game()
 
 
 func _on_new_game_pressed() -> void:
@@ -43,17 +38,18 @@ func _on_settings_pressed() -> void:
 	_master_slider.grab_focus()
 
 
-func _on_credits_pressed() -> void:
+func _on_credit_pressed() -> void:
 	_show_screen(_credits_screen)
 	%CreditsBackButton.grab_focus()
 
 
-func _on_quit_pressed() -> void:
+func _on_exit_pressed() -> void:
 	get_tree().quit()
 
 
 func _on_back_pressed() -> void:
 	_show_screen(_menu_screen)
+	_new_game_button.grab_focus()
 
 
 func _on_master_changed(value: float) -> void:
@@ -78,14 +74,6 @@ func _on_fullscreen_toggled(pressed: bool) -> void:
 	GameSettings.fullscreen = pressed
 	GameSettings.apply()
 	GameSettings.save_settings()
-
-
-func _refresh_menu() -> void:
-	_continue_button.disabled = not SaveManager.has_any_save()
-	if _continue_button.disabled:
-		_new_game_button.grab_focus()
-	else:
-		_continue_button.grab_focus()
 
 
 func _refresh_load_slots() -> void:
@@ -133,5 +121,3 @@ func _show_screen(screen: Control) -> void:
 	_load_screen.visible = screen == _load_screen
 	_settings_screen.visible = screen == _settings_screen
 	_credits_screen.visible = screen == _credits_screen
-	if screen == _menu_screen:
-		_refresh_menu()

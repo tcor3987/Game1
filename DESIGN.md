@@ -1,6 +1,6 @@
 # Design Dock
 
-**Status:** v0.3  
+**Status:** v0.6  
 **Engine:** Blazium / Godot 4.3  
 **Last updated:** 2026-10-18
 
@@ -11,7 +11,7 @@ Concept images live in [`design/`](design/).
 
 ## 1. Pitch
 
-A **grand-strategy-style** space game on a persistent **map**. You move a **mothership**, click **sites** to open **popups**, and **assign craft quotas**. The mothership runs an **undock sequence**, then launches craft to sites and **replenishes** losses. Mining craft **work the site, then fly home to drop off resources** before returning. Your job is to **balance assignments** and keep **production ahead of combat losses**.
+A **grand-strategy-style** space game on a persistent **map**. You move a **mothership**, click **sites** for **popups**, and set **craft quotas**. Craft pass through **airspace windows** (mothership and site) in **phases**; when phases finish they **leave airspace** and either **join the site** or **return to the mothership**. Mining craft cycle site work → haul home → drop off. Balance assignments and keep production ahead of combat losses.
 
 ---
 
@@ -20,32 +20,29 @@ A **grand-strategy-style** space game on a persistent **map**. You move a **moth
 | Pillar | Intent |
 |--------|--------|
 | **Map first** | The strategic map is always the main view. |
-| **Site popups** | Click a site → popup anchored at that site. Assignment happens there. |
-| **Quota, not micro** | Player sets *how many* craft a site should have; the mothership maintains it. |
-| **Undock, then go** | Assigned craft leave via a visible **undocking sequence**, not teleport. |
-| **Mine → haul home** | Mining is a cycle: gather at site → return to mothership → drop off → go back. |
-| **Auto replenish** | Destroyed or unassigned craft free a quota slot; mothership fills asap if stock allows. |
-| **Balance under attrition** | Combat burns craft; economy must feed rebuild + reassignment. |
-| **Mothership as avatar** | You move the mothership; it is launch bay, drop-off depot, and build hub. |
+| **Combined popups** | Site and mothership each use **one popup**: assignments (or hangar) **plus** airspace queue in the same panel. |
+| **Airspace queue** | Inside that popup: craft list with icon phases; one dock/undock at a time. |
+| **Phases, then exit** | Craft move between phases inside airspace; when complete they leave the window → site roster or mothership hangar. |
+| **Quota, not micro** | Player sets counts; systems fill and cycle craft. |
+| **Mine → haul home** | Gather at site → return via airspaces → drop off at mothership → go back. |
+| **Auto replenish** | Losses free quota slots; mothership fills asap if stock allows. |
+| **Mothership as avatar** | Movable hub: hangar, build, drop-off, mothership airspace. |
 
 ---
 
 ## 3. Core loop (locked)
 
 ```
-Move mothership on the map
-    → Sites appear / are reachable
-    → Click site → popup at site
-    → Assign craft quotas
-    → Undock sequence → craft transit to site
-    → At mining sites: mine → return to mothership → drop off resources → return to site
-    → Combat losses (or unassign) → undock replacement asap
-    → Rebalance quotas + build so production keeps up with losses
+Move mothership
+    → Click site → assign quotas
+    → Craft enter mothership airspace → phases → leave airspace → transit
+    → Enter site airspace → phases → leave airspace → join site
+    → Work (e.g. mine) → leave site into site airspace → phases → transit home
+    → Enter mothership airspace → phases → leave airspace → hangar / drop-off
+    → Losses → send replacements through the same airspace path
 ```
 
 ![Assignment and replenishment loop](design/design-assignment-loop.jpg)
-
-*Quotas → undock/launch → hold site → loss → auto replacement. Mining adds a haul-home cycle under the same assignment.*
 
 ---
 
@@ -53,87 +50,121 @@ Move mothership on the map
 
 | Layer | Role |
 |-------|------|
-| **Map (always on)** | Mothership, sites, craft undocking / in transit / at sites / hauling home |
-| **Site popup** | Opens **at the site’s map location**. Assignment UI lives here. |
-| **Other popups** | Hangar / build / inventory — overlays; map stays underneath |
-| **HUD** | Minimal chrome (resources, open panels, pause) |
+| **Map (always on)** | Mothership, sites, craft in long transit between airspaces |
+| **Site popup** | **One panel:** Assignments (top) + Airspace queue (bottom) |
+| **Mothership popup** | **One panel:** Hangar / build / inventory (top) + Airspace queue (bottom) |
+| **HUD** | Minimal chrome |
 
-**Not the model:** full-screen tab views that replace the map.
+**Not the model:** full-screen tabs; separate floating airspace-only windows.
 
 ![Map with site popup wireframe](design/design-map-site-popup.jpg)
 
-*Map stays primary; click a site → assignment popup anchored at that location.*
+![Combined site popup: assignments + airspace](design/design-combined-site-popup-ui.jpg)
+
+*Same window pattern for sites and mothership: management section + airspace docking queue.*
+
+Older split mockups (assignments-only / airspace-only) are superseded by the combined panel:
+
+![Site assignment-only (legacy mockup)](design/design-site-popup-ui.jpg)
+
+![Airspace-only (legacy mockup)](design/design-airspace-queue-ui.jpg)
 
 ---
 
-## 5. Mothership (locked)
+## 5. Airspace (inside the popup) (locked)
+
+Both the **mothership** and every **site** expose airspace as the **lower section of their popup** — not a second window.
+
+### What it is
+- A **docking queue list** in that popup: when a craft enters airspace it is **added to the list**.
+- Each row is one craft; the list order is the queue.
+- Craft are **not yet** fully in hangar / fully on-site while listed.
+- When all phases for that visit are done, the craft **leaves the list** and either **joins the site** or **returns to the mothership** (hangar / drop-off).
+
+### Phases (icons only — locked)
+
+Three phases, shown as **icons** (no phase names in UI). Meaning is learned by play, not labels.
+
+| Order | Intent (design only — not shown as text) | Icon idea |
+|-------|------------------------------------------|-----------|
+| 1 | Approaching **or** leaving | Motion / chevron |
+| 2 | Aligning | Crosshair / parallel marks |
+| 3 | Docking **or** undocking | Clamp / dock |
+
+- Each craft row shows **three phase indicators**; the **current** phase is highlighted.
+- Phases are approximate steps, not exact simulation jargon.
+
+### Docking queue rule (locked)
+
+- **Only one craft at a time** may be in the **docking / undocking** phase (phase 3).
+- Other craft wait in the list (still showing phase 1 or 2, or idle until the dock slot frees).
+- The airspace list **is** the docking queue.
+
+### Two airspaces on a trip
+
+```
+Hangar
+  → Mothership airspace (queue + phases) → leave list → map transit
+  → Site airspace (queue + phases) → leave list → Join site
+
+Site (working)
+  → Site airspace → leave list → map transit
+  → Mothership airspace → leave list → Hangar / drop-off
+```
+
+### Rules
+
+| Rule | Behavior |
+|------|----------|
+| **No teleport** | Always through airspace queue + phases. |
+| **Exit = resolve** | Leaving the list → join site or return to mothership. |
+| **Dock lock** | Single docking/undocking slot per airspace. |
+| **Quota accounting** | Pipeline vs on-station display TBD (D12). |
+
+---
+
+## 6. Mothership (locked)
 
 - Player **moves** the mothership on the map.
-- Mothership **builds / stores** craft, runs **undock**, and receives **resource drop-offs**.
-- When a site is under quota (missing hulls), mothership undocks a replacement **as soon as a craft is available**.
-- If hangar is empty, player must **build more**.
-
----
-
-## 6. Undocking sequence (locked)
-
-When the mothership sends craft to fill a site quota (first fill or replacement):
-
-1. Craft is reserved from hangar / ready pool.  
-2. **Undock sequence** plays at the mothership (timed / animated — not instant teleport).  
-3. Craft enters **transit** toward the site on the map.  
-4. Craft **arrives** and counts toward the site’s on-station numbers.
-
-Undock queues if multiple craft launch; order / pad limits TBD (D8).
+- **Builds / stores** craft in hangar.
+- **Mothership airspace** handles launch (to sites) and recovery (from sites), including mining **drop-off** during inbound phases or on hangar return.
+- Under-quota sites get new craft sent through mothership airspace **asap** when hulls are free.
 
 ---
 
 ## 7. Sites (locked)
 
-- Sites **appear on the map** (discovery rules TBD).
-- **Click site** → **popup at that site**.
-- Player **assigns quotas** (per craft type / role).
-- Site work runs under those assignments.
+- Sites on the map; click → popup (assignments + **site airspace**).
+- Quotas drive how many craft should be committed to the site.
+- Craft only **join the site** after finishing site-airspace phases.
 
-### Assignment & replenishment (locked)
-
-| Rule | Behavior |
-|------|----------|
-| **Quota** | Desired craft counts for the site |
-| **Fill** | Undock → transit until on-station (+ assigned-but-hauling for miners) matches quota |
-| **Loss** | Destroyed → slot free → undock replacement asap |
-| **Unassign / recall** | Player lowers quota or recalls → extras return; stop sending |
-| **Skill** | Spread limited craft; combat quotas cost economy |
-
-Player manages **assignments and production**, not every steering input.
-
-### Mining cycle (locked)
-
-Mining craft assigned to a site follow this loop automatically:
-
-```
-At site → mine / load cargo
-    → Leave site → transit to mothership
-    → Drop off resources at mothership
-    → Transit back to the same site
-    → Repeat while still assigned
-```
+### Assignment & replenishment
 
 | Rule | Behavior |
 |------|----------|
-| **Still assigned** | Haul-home is **work**, not unassign. Do **not** treat drop-off as “left the roster” for a *new* hull unless quota requires more bodies on-station. |
-| **On-station gap** | While a miner is hauling, fewer craft are *at* the site. Player can raise miner quota (e.g. 2+) so one mines while another hauls. |
-| **Drop-off** | Resources only bank when cargo is delivered to the **mothership** (not left at the site). |
+| **Quota** | Desired craft counts |
+| **Fill** | Hangar → mothership airspace → transit → site airspace → join site |
+| **Loss** | Destroyed on-site → slot free → send replacement through airspaces |
+| **Unassign / recall** | Extras depart site airspace → transit → mothership airspace → hangar |
+
+### Mining cycle
+
+```
+Joined site → mine / load
+    → Site airspace (depart phases) → transit
+    → Mothership airspace (recover / unload phases)
+    → Leave airspace → drop-off banked at mothership
+    → Mothership airspace (outbound) → transit → site airspace → join site again
+```
+
+Haul-home remains **assigned work**, not unassign. Raise miner quota for continuous on-site presence while others haul.
 
 ---
 
-## 8. Economy & attrition (locked direction)
+## 8. Economy & attrition
 
-- Mining → mothership stores → build craft / supplies.  
-- Combat sites **consume craft** over time.  
-- Failure: over-assign combat, starve mining quotas, or empty hangar while quotas stay high.
-
-Deeper industrial chains TBD — haul-home mining is the v1 gather path.
+- Resources bank at mothership after inbound airspace / drop-off completes.  
+- Combat consumes craft; rebuild + re-send through airspaces.  
 
 ---
 
@@ -142,34 +173,51 @@ Deeper industrial chains TBD — haul-home mining is the v1 gather path.
 | # | Topic |
 |---|--------|
 | D1 | Continuous move vs node travel for mothership |
-| D2 | Must mothership be in range to undock toward a site / receive drop-off? |
-| D3 | Site types and which quotas each uses |
-| D4 | Site resolution: abstract on map vs tactical layer |
-| D5 | Build UI placement |
-| D6 | Transit speed / how visible undock + haul flights are |
+| D2 | Range required to use airspaces / send craft |
+| D3 | Site types and quotas |
+| D4 | Abstract site resolution vs tactical layer |
+| D5 | Mothership top section: hangar list vs build vs tabs inside the same popup |
+| D6 | Map transit visibility between airspaces |
 | D7 | Game name |
-| D8 | Undock capacity (one at a time vs parallel pads) |
-| D9 | Miner cargo size / mine duration before forced haul |
+| D8 | Parallel craft in one airspace |
+| D9 | Miner cargo / mine duration |
+| D10 | Phase durations / whether approach+align can run in parallel across craft |
+| D11 | Visual icons final art for the three phases |
+| D12 | UI: show pipeline craft in quota as “2 on-site · 1 in airspace” |
 
 ---
 
 ## 10. Non-goals (for now)
 
-- Full-screen modes that replace the map  
-- Instant teleport launch with no undock  
-- Mining that banks resources without returning to the mothership  
-- Player manually flying every haul as the main skill  
+- Full-screen modes replacing the map  
+- Instant hangar ↔ site with no airspace  
+- Mining that banks without mothership recovery  
+- Manual phase-by-phase clicking as the core skill  
 
 ---
 
-## 11. Vertical slice (proposed)
+## 11. Vertical slice
 
 1. Map + movable mothership.  
-2. Sites; click → popup at site; set miner quota.  
-3. **Undock** → transit to site → mine → **haul to mothership** → drop off → return.  
-4. Combat or simulated loss → undock replacement.  
-5. Block launch when hangar empty until player builds.
+2. Site popup with quotas.  
+3. Craft: hangar → **mothership airspace phases** → transit → **site airspace phases** → join site.  
+4. Mine → site airspace → transit → mothership airspace → drop-off → back.  
+5. Loss → replacement through airspaces.  
 
 ---
 
-*v0.3 — undock sequence; mining haul-home drop-off cycle; quota vs haul clarified.*
+## 12. Glossary
+
+| Term | Meaning |
+|------|---------|
+| Combined popup | Single site or mothership panel: management + airspace |
+| Airspace | Docking-queue section inside that popup |
+| Phase | One of three icon steps: approach/leave → align → dock/undock |
+| Docking queue | The airspace list; one craft in dock/undock at a time |
+| Leave airspace | Removed from list → joins site or returns to mothership |
+| Join site | Craft becomes on-station at the site |
+| Return to mothership | Inbound queue done → hangar / cargo delivered |
+
+---
+
+*v0.6 — site/mothership combined popup (assignments/hangar + airspace queue).*
